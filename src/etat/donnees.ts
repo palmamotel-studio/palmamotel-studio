@@ -39,8 +39,25 @@ export async function seConnecter(email: string): Promise<string | null> {
     email: e,
     options: { emailRedirectTo: window.location.origin + import.meta.env.BASE_URL },
   });
-  if (error) return error.message.includes("rate") ? "Trop de demandes de lien : réessaie dans quelques minutes." : `Envoi impossible : ${error.message}`;
+  if (error) return /rate|security/i.test(error.message) ? "Le service d'e-mails a atteint sa limite (quelques liens par heure). Connecte-toi avec ton mot de passe, ou réessaie dans une heure." : `Envoi impossible : ${error.message}`;
   return null;
+}
+
+export async function seConnecterMotDePasse(email: string, motDePasse: string): Promise<string | null> {
+  const e = email.trim().toLowerCase();
+  if (!MEMBRES.includes(e)) return "Cette adresse n'a pas accès au studio.";
+  const { error } = await supabase.auth.signInWithPassword({ email: e, password: motDePasse });
+  if (!error) return null;
+  return /invalid/i.test(error.message)
+    ? "Mot de passe incorrect, ou pas encore créé. La première fois, connecte-toi avec le lien par e-mail puis choisis ton mot de passe."
+    : `Connexion impossible : ${error.message}`;
+}
+
+/** Crée ou change le mot de passe du compte connecté. */
+export async function definirMotDePasse(motDePasse: string): Promise<string | null> {
+  if (motDePasse.length < 8) return "8 caractères minimum.";
+  const { error } = await supabase.auth.updateUser({ password: motDePasse });
+  return error ? `Impossible : ${error.message}` : null;
 }
 
 export const seDeconnecter = () => supabase.auth.signOut();

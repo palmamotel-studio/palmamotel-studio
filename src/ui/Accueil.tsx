@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Contexte } from "../App";
 import { CATALOGUE } from "../gabarits";
 import { NOMS_FAMILLES, type Famille } from "../moteur/types";
-import { listerProjets, ecouterProjets, supprimerProjet, enregistrerProjet, type ResumeProjet } from "../etat/donnees";
+import { listerProjets, ecouterProjets, supprimerProjet, enregistrerProjet, definirMotDePasse, type ResumeProjet } from "../etat/donnees";
 import { nouveauProjet, normaliser, nouvelId } from "../etat/projet";
 import { useEditeur } from "../etat/store";
 import { rendreProjet } from "../etat/calcul";
@@ -24,6 +24,9 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
   const [erreur, setErreur] = useState<string | null>(null);
   const [aSupprimer, setASupprimer] = useState<string | null>(null);
   const [comparer, setComparer] = useState<string[] | null>(null);
+  const [mdpOuvert, setMdpOuvert] = useState(false);
+  const [mdp, setMdp] = useState("");
+  const [mdpMsg, setMdpMsg] = useState<string | null>(null);
   const [comparaison, setComparaison] = useState<[ResumeProjet, ResumeProjet] | null>(null);
   const fichier = useRef<HTMLInputElement>(null);
 
@@ -64,8 +67,19 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
         <span className="eyebrow">Studio de mock-ups</span>
         <span className="spacer" />
         <span className="note">{ctx.mode === "partage" ? `Espace partagé · ${ctx.email}` : "Mode local : projets sur cet appareil uniquement"}</span>
+        {ctx.mode === "partage" && <button className="btn small" onClick={() => { setMdpOuvert(!mdpOuvert); setMdpMsg(null); }}>Mot de passe</button>}
         <button className="btn small" onClick={ctx.quitter}>{ctx.mode === "partage" ? "Se déconnecter" : "Se connecter"}</button>
       </header>
+      {mdpOuvert && (
+        <form className="carte row" onSubmit={async (e) => { e.preventDefault(); const err = await definirMotDePasse(mdp); setMdpMsg(err ?? "Mot de passe enregistré. Tu peux maintenant te connecter avec, sans lien par e-mail."); if (!err) setMdp(""); }}>
+          <input type="text" autoComplete="username" value={ctx.email ?? ""} readOnly hidden />
+          <label className="champ" style={{ flex: "1 1 240px" }}>Nouveau mot de passe (8 caractères minimum)
+            <input id="nouveau-mdp" type="password" autoComplete="new-password" value={mdp} onChange={(e) => setMdp(e.target.value)} />
+          </label>
+          <button className="btn primary" disabled={mdp.length < 8}>Enregistrer</button>
+          {mdpMsg && <span className="note" style={{ flexBasis: "100%" }}>{mdpMsg}</span>}
+        </form>
+      )}
 
       {erreur && <div className="erreur">{erreur}</div>}
 
