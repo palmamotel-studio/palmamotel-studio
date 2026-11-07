@@ -61,7 +61,9 @@ export function Editeur({ ctx }: { ctx: Contexte }) {
 
   const precision = useMemo(() => (projet ? precisionProjet(projet) : null), [projet]);
   if (!projet || !precision) return null;
-  const idx = ETAPES.findIndex((e) => e.id === etape);
+  // Un modèle du catalogue n'a pas de finitions (elles sont dans l'image).
+  const etapes = projet.modele ? ETAPES.filter((e) => e.id !== "finitions").map((e) => (e.id === "mesures" ? { ...e, nom: "Vues & échelle" } : e)) : ETAPES;
+  const idx = etapes.findIndex((e) => e.id === etape);
   const aller = (e: Etape) => { set({ etape: e }); setVoirManquantes(false); };
 
   async function retour() {
@@ -86,10 +88,10 @@ export function Editeur({ ctx }: { ctx: Contexte }) {
         <span className="spacer" />
         <button className="btn small" onClick={annuler} disabled={!passe.length} aria-label="Annuler">↶ Annuler</button>
         <button className="btn small" onClick={retablir} disabled={!futur.length} aria-label="Rétablir">↷ Rétablir</button>
-        <button className="score" onClick={() => setVoirManquantes(!voirManquantes)} aria-expanded={voirManquantes} title="Précision du mock-up">
+        {!projet.modele && <button className="score" onClick={() => setVoirManquantes(!voirManquantes)} aria-expanded={voirManquantes} title="Précision du mock-up">
           Précision {precision.score} %
           <span className="jauge"><i style={{ width: `${precision.score}%` }} /></span>
-        </button>
+        </button>}
       </header>
 
       {voirManquantes && (
@@ -105,7 +107,7 @@ export function Editeur({ ctx }: { ctx: Contexte }) {
       )}
 
       <nav className="etapes" aria-label="Étapes">
-        {ETAPES.map((e, i) => (
+        {etapes.map((e, i) => (
           <button key={e.id} aria-current={etape === e.id ? "step" : undefined} className={i < idx ? "fait" : ""} onClick={() => aller(e.id)}>
             <span className="n">{i + 1}</span>{e.nom}
           </button>
@@ -125,8 +127,8 @@ export function Editeur({ ctx }: { ctx: Contexte }) {
             {etape === "export" && <EtapeExport toast={toast} ctx={ctx} />}
           </div>
           <div className="nav">
-            <button className="btn" disabled={idx === 0} onClick={() => aller(ETAPES[idx - 1].id)}>← {idx > 0 ? ETAPES[idx - 1].nom : "Précédent"}</button>
-            {idx < ETAPES.length - 1 && <button className="btn primary" onClick={() => aller(ETAPES[idx + 1].id)}>{ETAPES[idx + 1].nom} →</button>}
+            <button className="btn" disabled={idx === 0} onClick={() => aller(etapes[idx - 1].id)}>← {idx > 0 ? etapes[idx - 1].nom : "Précédent"}</button>
+            {idx < etapes.length - 1 && <button className="btn primary" onClick={() => aller(etapes[idx + 1].id)}>{etapes[idx + 1].nom} →</button>}
           </div>
         </aside>
       </div>

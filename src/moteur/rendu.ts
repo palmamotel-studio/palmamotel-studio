@@ -39,6 +39,8 @@ export interface OptionsRendu {
   taille?: string;
   /** Résout un visuel importé en URL affichable (écran). */
   visuel?: (src: string) => string | null;
+  /** Mock-up à partir d'une image du catalogue : l'image remplace le dessin calculé. */
+  image?: { src: string; x: number; y: number; l: number; h: number };
 }
 
 export type ModeFusion = "normal" | "multiply" | "screen" | "overlay";
@@ -205,7 +207,7 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
   // Effet matière et lumières : limités aux surfaces du vêtement.
   const surfaces = remplis.map((r) => r.t.d);
   const defs: string[] = [`<clipPath id="${idUnique}-tissu">${surfaces.map((d) => `<path d="${d}"/>`).join("")}</clipPath>`];
-  const effet = o.effet && o.effet !== "uni" ? o.effet : null;
+  const effet = o.effet && o.effet !== "uni" && surfaces.length ? o.effet : null;
   let texture = "";
   if (effet) {
     const freq = effet === "chiné" ? 0.9 : effet === "garment dye" ? 0.02 : 0.012;
@@ -215,7 +217,7 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
   }
   const corps = d.boite;
   defs.push(`<radialGradient id="${idUnique}-lum" cx="${corps.x + corps.l / 2}" cy="${corps.y + corps.h * 0.32}" r="${corps.l * 0.35}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="${c.principale ? 0.22 : 0}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>`);
-  const lumieres = c.principale ? `<g clip-path="url(#${idUnique}-tissu)"><rect x="${vb.x}" y="${vb.y}" width="${vb.l}" height="${vb.h}" fill="url(#${idUnique}-lum)"/></g>` : "";
+  const lumieres = c.principale && surfaces.length ? `<g clip-path="url(#${idUnique}-tissu)"><rect x="${vb.x}" y="${vb.y}" width="${vb.l}" height="${vb.h}" fill="url(#${idUnique}-lum)"/></g>` : "";
 
   const els = o.elements ?? [];
   const calquesElements: Calque[] = els.map((e, i) => ({
@@ -228,9 +230,28 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
     groupe: "Éléments",
   }));
 
+  // Modèle du catalogue : l'image, puis la couleur posée en « Produit » sur la silhouette.
+  const img = o.image;
+  const urlImg = img ? (o.visuel ?? ((x: string) => (x.startsWith("data:") ? x : null)))(img.src) : null;
+  let calqueImage = "", calqueTeinte = "";
+  if (img) {
+    if (urlImg) {
+      const balise = `<image href="${esc(urlImg)}" x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" preserveAspectRatio="none"/>`;
+      calqueImage = balise;
+      if (c.principale) {
+        defs.push(`<mask id="${idUnique}-mimg" maskUnits="userSpaceOnUse" x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" style="mask-type:alpha">${balise}</mask>`);
+        calqueTeinte = `<rect x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" fill="${tissu}" mask="url(#${idUnique}-mimg)"/>`;
+      }
+    } else {
+      calqueImage = `<rect x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" fill="#f1f1f1"/><text x="${img.x + img.l / 2}" y="${img.y + img.h / 2}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="${Math.max(8, img.l / 25)}" fill="#999">Chargement du modèle…</text>`;
+    }
+  }
+
   const calques: Calque[] = [
     { id: "fond", nom: "Fond", contenu: `<rect x="${vb.x}" y="${vb.y}" width="${vb.l}" height="${vb.h}" fill="${o.fond}"/>`, fusion: "normal", masque: true, vide: false },
     { id: "base", nom: "Couleur de base du vêtement", contenu: base.join(""), fusion: "normal", masque: false, vide: !base.length },
+    { id: "modele", nom: "Dessin du modèle", contenu: calqueImage, fusion: "normal", masque: false, vide: !img },
+    { id: "teinte", nom: "Couleur du vêtement (Produit)", contenu: calqueTeinte, fusion: "multiply", masque: false, vide: !calqueTeinte },
     { id: "texture", nom: `Effet matière — ${effet ?? "uni"}`, contenu: texture, fusion: "multiply", masque: false, vide: !texture },
     ...zonesActives.map((z) => ({
       id: `zone-${z.id}`,

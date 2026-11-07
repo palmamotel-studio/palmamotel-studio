@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Contexte } from "../App";
 import { useEditeur } from "../etat/store";
-import { mesuresDe, rendreProjet } from "../etat/calcul";
+import { mesuresDe, rendreProjet, vuesDe } from "../etat/calcul";
 import { MATIERES, EFFETS, COUPES, type Projet } from "../etat/projet";
-import { TAILLES, VUES, NOMS_VUES, type Taille, type Vue } from "../moteur/types";
+import { TAILLES, NOMS_VUES, type Taille, type Vue } from "../moteur/types";
 import { valeurStandard } from "../moteur/tailles";
 import { listerPalette, ajouterCouleur, supprimerCouleur, type CouleurMarque } from "../etat/donnees";
 import { PREREGLAGES, avertissements, produire, emballer, livrer, taillePx, type Format, type Prereglage, type Coloris } from "../export/exporter";
 import type { OutilRetouche } from "./Apercu";
+import { EtapeModele } from "./EtapeModele";
 
 const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString("fr-FR");
 
@@ -62,6 +63,7 @@ export function EtapePiece() {
 export function EtapeMesures() {
   const { projet, modifier, taille, set, mesureActive } = useEditeur();
   if (!projet) return null;
+  if (projet.modele) return <EtapeModele />;
   const { g, cm, mm } = mesuresDe(projet, taille);
   const saisies = projet.tableau[taille] || {};
   const alertes = g.controles?.(mm) || [];
@@ -246,7 +248,7 @@ export function EtapeExport({ toast, ctx }: { toast: (s: string) => void; ctx: C
   const [pre, setPre] = useState<Prereglage>("procreate");
   const [dpi, setDpi] = useState(PREREGLAGES.procreate.dpi);
   const [formats, setFormats] = useState<Format[]>(["psd"]);
-  const [vues, setVues] = useState<Vue[]>(["face", "dos"]);
+  const [vues, setVues] = useState<Vue[]>(() => (projet ? vuesDe(projet).filter((v) => v !== "profil") : ["face"]));
   const [palette, setPalette] = useState<CouleurMarque[]>([]);
   const [coloris, setColoris] = useState<string[]>([]); // ids de la palette ; vide = couleur du projet
   useEffect(() => { listerPalette(ctx.mode).then(setPalette).catch(() => {}); }, []);
@@ -262,7 +264,7 @@ export function EtapeExport({ toast, ctx }: { toast: (s: string) => void; ctx: C
   if (!projet || !g) return null;
   const r = rendreProjet(projet, vues[0] || "face", tailles[0] || "M", "px");
   const px = taillePx(r, dpi);
-  const vuesDispo = g.vues ?? VUES;
+  const vuesDispo = vuesDe(projet);
   const zones = vuesDispo.flatMap((v) => g.zones(mesuresDe(projet, projet.tailleRef).mm, v));
 
   const choisirPre = (p: Prereglage) => { setPre(p); setDpi(PREREGLAGES[p].dpi); setFormats(PREREGLAGES[p].formats); setTransparent(p !== "reseaux"); };

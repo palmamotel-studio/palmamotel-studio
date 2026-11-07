@@ -21,6 +21,12 @@ Adresse : **https://palmamotel-studio.github.io/palmamotel-studio/**
 - **Export** : PSD en calques (dossier Éléments, Lumières, Ombres et plis, TON DESIGN ICI, REPÈRES), PNG, PNG par calque, SVG, carte de déplacement, détails, fiche technique PDF, projet .json ; par lot de coloris et de tailles.
 - **Comparaison** de deux mock-ups, générateur à partir de dessins, espace partagé.
 
+## Catalogue de modèles (pack Opus)
+
+Les 681 planches du pack Opus sont découpées en 2 729 vues et rangées par famille et catégorie (hauts, vestes, bas, accessoires, nouveautés). Elles sont stockées **dans l'espace privé Supabase** (`marque/catalogue/`, index `catalogue/index.json`), jamais dans ce dépôt public, conformément à la licence du pack.
+
+Un mock-up créé depuis un modèle utilise l'image comme dessin : couleur (calque « Produit »), éléments, retouches et exports fonctionnent comme pour les pièces dessinées. L'échelle se règle à l'étape « Vues & échelle » (largeur réelle de la vue de face).
+
 ## Générateur à partir de dessins
 
 Sur l'accueil, « Générer à partir de dessins » : dépose jusqu'à 4 dessins ou photos et/ou une description. Claude (modèle `claude-opus-5-5`) choisit la pièce du catalogue la plus proche, reprend les mesures données, la couleur, la matière, les zones d'impression et note les détails à reprendre à la main.

@@ -1,3 +1,4 @@
+import { modeleImage } from "./modele";
 import type { EntreeCatalogue, Gabarit } from "../moteur/types";
 import { tshirt } from "./tshirt";
 import { hoodie } from "./hoodie";
@@ -49,5 +50,6 @@ export const CATALOGUE: EntreeCatalogue[] = [
 ];
 
 export function gabarit(id: string): Gabarit | undefined {
+  if (id === "modele") return modeleImage;
   return CATALOGUE.find((e) => e.id === id)?.gabarit;
 }

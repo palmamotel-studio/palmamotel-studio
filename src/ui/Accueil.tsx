@@ -9,6 +9,7 @@ import { rendreProjet } from "../etat/calcul";
 import { svgDe } from "../moteur/rendu";
 import { Generateur } from "./Generateur";
 import { Comparaison } from "./Comparaison";
+import { Catalogue } from "./Catalogue";
 
 function Vignette({ r }: { r: ResumeProjet }) {
   const svg = useMemo(() => {
@@ -118,7 +119,8 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
       </section>
 
       <section className="catalogue">
-        <h2 style={{ fontFamily: "var(--f-head)", fontStretch: "85%", fontSize: 22 }}>Nouveau mock-up</h2>
+        <h2 style={{ fontFamily: "var(--f-head)", fontStretch: "85%", fontSize: 22 }}>Nouveau mock-up dessiné sur mesures</h2>
+        <p className="note" style={{ margin: 0 }}>La forme se calcule à partir de vos mesures, dans toutes les tailles.</p>
         {familles.map((f) => (
           <div key={f} className="famille">
             <span className="eyebrow">{NOMS_FAMILLES[f]}</span>
@@ -132,6 +134,12 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
             </div>
           </div>
         ))}
+      </section>
+
+      <section className="stack">
+        <h2 style={{ fontFamily: "var(--f-head)", fontStretch: "85%", fontSize: 22 }}>Catalogue de modèles</h2>
+        <p className="note" style={{ margin: 0 }}>Les dessins du pack Opus, classés par catégorie. Ils restent dans votre espace privé. Touche un modèle pour voir ses vues, puis crée un mock-up à partir de lui.</p>
+        <Catalogue ctx={ctx} numero={(projets?.length || 0) + 1} />
       </section>
     </div>
   );

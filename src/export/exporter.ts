@@ -130,7 +130,7 @@ export async function produire(p: Projet, d: Demande, progression?: (t: string) 
 async function produireUn(p: Projet, d: Demande, progression?: (t: string) => void): Promise<{ nom: string; donnees: Uint8Array; type: string }[]> {
   const fichiers: { nom: string; donnees: Uint8Array; type: string }[] = [];
   const u8 = async (b: Blob) => new Uint8Array(await b.arrayBuffer());
-  const images = await precharger((p.elements || []).map((e) => e.visuel).filter((v): v is string => !!v));
+  const images = await precharger([...(p.elements || []).map((e) => e.visuel).filter((v): v is string => !!v), ...(p.modele ? p.modele.vues.map((v) => "stockage:catalogue/" + v.chemin) : [])]);
   for (const t of d.tailles) {
     for (const vue of d.vues) {
       progression?.(`${NOMS_VUES[vue]} · ${t}`);

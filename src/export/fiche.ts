@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import type { Projet } from "../etat/projet";
-import { mesuresDe, rendreProjet } from "../etat/calcul";
+import { mesuresDe, rendreProjet, vuesDe } from "../etat/calcul";
 import { TAILLES, NOMS_VUES, VUES, type Vue } from "../moteur/types";
 import { nomType } from "../moteur/elements";
 import { compositeCanvas } from "./canvas";
@@ -23,7 +23,7 @@ export async function ficheTechnique(p: Projet): Promise<Uint8Array> {
   const { g } = mesuresDe(p, p.tailleRef);
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const W = 297, H = 210, m = 12;
-  const images = await precharger(p.elements.map((e) => e.visuel).filter((v): v is string => !!v));
+  const images = await precharger([...p.elements.map((e) => e.visuel).filter((v): v is string => !!v), ...(p.modele ? p.modele.vues.map((v) => "stockage:catalogue/" + v.chemin) : [])]);
 
   const entete = (titre: string) => {
     doc.setFillColor(20, 38, 42); doc.rect(0, 0, W, 18, "F");
@@ -37,7 +37,7 @@ export async function ficheTechnique(p: Projet): Promise<Uint8Array> {
 
   // ---------- Page 1 : vues ----------
   entete("FICHE TECHNIQUE");
-  const vues: Vue[] = g.vues ?? VUES;
+  const vues: Vue[] = vuesDe(p);
   const largeurCase = (W - 2 * m - (vues.length - 1) * 6) / vues.length;
   const rendus = vues.map((v) => rendreProjet(p, v, p.tailleRef, `pdf-${v}`));
   // Même échelle pour toutes les vues, pour qu'elles restent comparables.

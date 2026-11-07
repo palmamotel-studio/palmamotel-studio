@@ -41,6 +41,19 @@ export interface Projet {
   zonesActives: string[];
   retouches: Partial<Record<Vue, Retouche[]>>;
   notes: string;
+  /** Mock-up basé sur un modèle du catalogue (image) plutôt que sur un gabarit dessiné. */
+  modele?: ModeleProjet;
+}
+
+export interface VueModele { nom: string; chemin: string; l: number; h: number }
+export interface ModeleProjet {
+  id: string;
+  nom: string;
+  famille: string;
+  categorie: string;
+  vues: VueModele[];
+  /** Vue du modèle utilisée pour chaque vue du projet (index dans `vues`, ou null). */
+  correspondance: { face: number | null; dos: number | null; profil: number | null };
 }
 
 export const nouvelId = () =>
@@ -84,9 +97,22 @@ export function normaliser(brut: any): Projet | null {
     retouches: { face: brut.retouches?.face || [], dos: brut.retouches?.dos || [], profil: brut.retouches?.profil || [] },
     finitions: { ...base.finitions, ...(brut.finitions || {}) },
     elements: Array.isArray(brut.elements) ? brut.elements : [],
+    modele: brut.modele && Array.isArray(brut.modele.vues) ? brut.modele : undefined,
     tableau: brut.tableau || {},
     zonesActives: Array.isArray(brut.zonesActives) ? brut.zonesActives : [],
   };
+}
+
+/** Nouveau projet à partir d'un modèle du catalogue. */
+export function nouveauProjetModele(m: Omit<ModeleProjet, "correspondance">, numero: number): Projet {
+  const p = nouveauProjet("modele", numero);
+  p.nom = m.nom;
+  const trouve = (re: RegExp) => { const i = m.vues.findIndex((v) => re.test(v.nom)); return i >= 0 ? i : null; };
+  const face = trouve(/^Face$/) ?? trouve(/^Face/) ?? 0;
+  const dos = trouve(/^Dos$/) ?? trouve(/^Dos/) ?? (m.vues.length > 1 ? 1 : null);
+  p.modele = { ...m, correspondance: { face, dos, profil: trouve(/^Profil/) } };
+  p.matiere.type = /hoodie|sweat|crewneck|zip/i.test(m.nom) ? "french terry" : "jersey";
+  return p;
 }
 
 export const MATIERES = ["jersey", "interlock", "french terry", "fleece (molleton gratté)", "piqué", "côte", "nylon", "denim", "autre"];

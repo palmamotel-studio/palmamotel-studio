@@ -1,5 +1,6 @@
 import type { Projet } from "./projet";
 import type { Taille, Vue } from "../moteur/types";
+import { VUES } from "../moteur/types";
 import { gabarit } from "../gabarits";
 import { mesuresCm, enMm } from "../moteur/tailles";
 import { rendre, type Rendu } from "../moteur/rendu";
@@ -12,7 +13,34 @@ export function mesuresDe(p: Projet, t: Taille) {
   return { g, cm, mm: enMm(cm) };
 }
 
+/** Vue du modèle utilisée pour une vue du projet, et sa taille réelle (mm). */
+export function vueModele(p: Projet, vue: Vue, t: Taille) {
+  const m = p.modele!;
+  const i = m.correspondance[vue] ?? m.correspondance.face ?? 0;
+  const v = m.vues[Math.min(i, m.vues.length - 1)];
+  const face = m.vues[m.correspondance.face ?? 0] ?? v;
+  const largeurFace = mesuresDe(p, t).mm.largeur_dessin;
+  const k = largeurFace / face.l; // mm par pixel de l'image
+  return { v, l: v.l * k, h: v.h * k };
+}
+
+function rendreModele(p: Projet, vue: Vue, t: Taille, idUnique: string): Rendu {
+  const { v, l, h } = vueModele(p, vue, t);
+  const c = p.couleur;
+  return rendre(
+    { traces: [], boite: { x: -l / 2, y: 0, l, h } },
+    {
+      couleurs: { principale: c.traitSeul ? null : c.principale, cotes: null, interieur: null, fil: null, accessoires: c.accessoires },
+      zones: [], zonesActives: [], retouches: p.retouches[vue] || [], marge: 40, fond: "#ffffff",
+      elements: (p.elements || []).filter((e) => e.vue === vue), taille: t, visuel: urlVisuel,
+      image: { src: "stockage:catalogue/" + v.chemin, x: -l / 2, y: 0, l, h },
+    },
+    idUnique,
+  );
+}
+
 export function rendreProjet(p: Projet, vue: Vue, t: Taille, idUnique: string): Rendu {
+  if (p.modele) return rendreModele(p, vue, t, idUnique);
   const { g, mm } = mesuresDe(p, t);
   const pose = g.poses.includes(p.pose) ? p.pose : g.poseParDefaut;
   const d = g.dessiner(mm, vue, pose, p.finitions);
@@ -57,4 +85,10 @@ export function precisionProjet(p: Projet) {
     { cle: "pantone", libelle: "Référence Pantone", niveau: "optionnel", rempli: p.couleur.traitSeul || !!p.couleur.pantone.trim(), etape: "matiere" },
   ];
   return scorePrecision(g.mesures, saisies, champs);
+}
+
+/** Vues disponibles pour un projet (un modèle du catalogue n'a que les vues associées). */
+export function vuesDe(p: Projet): Vue[] {
+  if (p.modele) return (["face", "dos", "profil"] as Vue[]).filter((v) => p.modele!.correspondance[v] !== null);
+  return gabarit(p.gabaritId)?.vues ?? VUES;
 }

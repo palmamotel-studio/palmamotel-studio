@@ -92,6 +92,22 @@ function dessinerCalque(g: CanvasRenderingContext2D, r: Rendu, id: string, image
     canvasOps(g, opsElement(e, o.taille ?? "M"), images);
     return;
   }
+  if (id === "modele" || id === "teinte") {
+    const im = o.image && images.get(o.image.src);
+    if (!o.image || !im) return;
+    const { x, y, l, h } = o.image;
+    if (id === "modele") { g.drawImage(im, x, y, l, h); return; }
+    // Couleur limitée à la silhouette de l'image (son canal alpha).
+    const t = document.createElement("canvas");
+    t.width = g.canvas.width; t.height = g.canvas.height;
+    const tg = t.getContext("2d")!;
+    tg.setTransform(g.getTransform());
+    tg.drawImage(im, x, y, l, h);
+    tg.globalCompositeOperation = "source-in";
+    tg.fillStyle = T.tissu; tg.fillRect(x, y, l, h);
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(t, 0, 0); g.restore();
+    return;
+  }
   if (id === "texture") {
     if (!o.effet || o.effet === "uni") return;
     g.save(); g.clip(surfaces());

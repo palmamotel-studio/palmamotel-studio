@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useEditeur } from "../etat/store";
-import { rendreProjet, mesuresDe } from "../etat/calcul";
+import { rendreProjet, mesuresDe, vuesDe } from "../etat/calcul";
 import { svgCote } from "../moteur/rendu";
-import { TAILLES, NOMS_VUES, VUES, type Pt } from "../moteur/types";
+import { TAILLES, NOMS_VUES, type Pt } from "../moteur/types";
 import { details } from "../moteur/details";
 import { useVisuels } from "../etat/visuels";
 
@@ -29,7 +29,7 @@ export function Apercu({ outil, epaisseur, couleurTrait }: Props) {
   if (!projet || !r || !calc) return null;
   const { g, cm, mm } = calc;
   const pose = g.poses.includes(projet.pose) ? projet.pose : g.poseParDefaut;
-  const vuesDispo = g.vues ?? VUES;
+  const vuesDispo = vuesDe(projet);
   const zooms = details(r);
   const zoom = zooms.find((z) => z.id === detail);
   const vb = zoom ?? r.viewBox;
