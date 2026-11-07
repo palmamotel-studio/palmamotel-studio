@@ -75,7 +75,7 @@ export function projetDepuisIA(r: ResultatIA, numero: number, description: strin
   if (r.matiere.type) p.matiere.type = r.matiere.type;
   p.matiere.composition = r.matiere.composition || "";
   p.matiere.grammage = r.matiere.grammage > 0 ? r.matiere.grammage : null;
-  const zonesDispo = new Set(["face", "dos"].flatMap((v) => g.zones({}, v as any).map((z) => z.id)));
+  const zonesDispo = new Set((g.vues ?? ["face", "dos"]).flatMap((v) => g.zones({}, v).map((z) => z.id)));
   p.zonesActives = (r.zones || []).filter((z) => zonesDispo.has(z));
   p.notes = [r.notes, r.ecarts && `À reprendre à la main : ${r.ecarts}`, description && `Demande d'origine : ${description}`].filter(Boolean).join("\n\n");
   return p;

@@ -6,7 +6,7 @@ import { MATIERES, EFFETS, COUPES, type Projet } from "../etat/projet";
 import { TAILLES, VUES, NOMS_VUES, type Taille, type Vue } from "../moteur/types";
 import { valeurStandard } from "../moteur/tailles";
 import { listerPalette, ajouterCouleur, supprimerCouleur, type CouleurMarque } from "../etat/donnees";
-import { PREREGLAGES, avertissements, produire, emballer, livrer, taillePx, type Format, type Prereglage } from "../export/exporter";
+import { PREREGLAGES, avertissements, produire, emballer, livrer, taillePx, type Format, type Prereglage, type Coloris } from "../export/exporter";
 import type { OutilRetouche } from "./Apercu";
 
 const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString("fr-FR");
@@ -228,7 +228,7 @@ export function EtapeRetouches({ outil, setOutil, epaisseur, setEpaisseur, coule
             <label className="champ">Couleur<input type="color" value={couleurTrait} onChange={(e) => setCouleurTrait(e.target.value)} style={{ minHeight: 44 }} /></label>
           </div>
           <div className="row">
-            <button className="btn" disabled={!nb} onClick={() => modifier((p) => { p.retouches[vue] = p.retouches[vue].slice(0, -1); })}>Effacer le dernier trait</button>
+            <button className="btn" disabled={!nb} onClick={() => modifier((p) => { p.retouches[vue] = (p.retouches[vue] || []).slice(0, -1); })}>Effacer le dernier trait</button>
             <button className="btn danger" disabled={!nb} onClick={() => modifier((p) => { p.retouches[vue] = []; })}>Tout effacer ({NOMS_VUES[vue].toLowerCase()})</button>
           </div>
         </>
@@ -241,24 +241,29 @@ export function EtapeRetouches({ outil, setOutil, epaisseur, setEpaisseur, coule
 }
 
 /* ---------------- 7. Export ---------------- */
-export function EtapeExport({ toast }: { toast: (s: string) => void }) {
+export function EtapeExport({ toast, ctx }: { toast: (s: string) => void; ctx: Contexte }) {
   const { projet, modifier, taille } = useEditeur();
   const [pre, setPre] = useState<Prereglage>("procreate");
   const [dpi, setDpi] = useState(PREREGLAGES.procreate.dpi);
   const [formats, setFormats] = useState<Format[]>(["psd"]);
   const [vues, setVues] = useState<Vue[]>(["face", "dos"]);
+  const [palette, setPalette] = useState<CouleurMarque[]>([]);
+  const [coloris, setColoris] = useState<string[]>([]); // ids de la palette ; vide = couleur du projet
+  useEffect(() => { listerPalette(ctx.mode).then(setPalette).catch(() => {}); }, []);
   const [tailles, setTailles] = useState<Taille[]>([taille]);
   const [transparent, setTransparent] = useState(true);
   const [encours, setEncours] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
   const g = projet ? mesuresDe(projet, taille).g : null;
-  const demande = { vues, tailles, formats, dpi, fondTransparent: transparent };
+  const lots: Coloris[] = coloris.map((id) => (id === "trait" ? { nom: "trait", hex: null, pantone: "" } : (() => { const c = palette.find((x) => x.id === id)!; return { nom: c.nom, hex: c.hex, pantone: c.pantone || "" }; })())).filter(Boolean);
+  const demande = { vues, tailles, formats, dpi, fondTransparent: transparent, coloris: lots };
   const avert = useMemo(() => (projet && vues.length && tailles.length ? avertissements(projet, demande) : []), [projet, vues, tailles, formats, dpi]);
   if (!projet || !g) return null;
   const r = rendreProjet(projet, vues[0] || "face", tailles[0] || "M", "px");
   const px = taillePx(r, dpi);
-  const zones = VUES.flatMap((v) => g.zones(mesuresDe(projet, projet.tailleRef).mm, v));
+  const vuesDispo = g.vues ?? VUES;
+  const zones = vuesDispo.flatMap((v) => g.zones(mesuresDe(projet, projet.tailleRef).mm, v));
 
   const choisirPre = (p: Prereglage) => { setPre(p); setDpi(PREREGLAGES[p].dpi); setFormats(PREREGLAGES[p].formats); setTransparent(p !== "reseaux"); };
   const bascule = <T,>(l: T[], v: T) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]);
@@ -278,7 +283,7 @@ export function EtapeExport({ toast }: { toast: (s: string) => void }) {
     }
   }
 
-  const FORMATS: [Format, string][] = [["psd", "PSD en calques (Procreate)"], ["png", "PNG haute définition"], ["png_calques", "Un PNG par calque (.zip, pour Canva)"], ["svg", "SVG vectoriel"], ["deplacement", "Carte de déplacement (relief en niveaux de gris)"], ["json", "Projet .json (à rouvrir dans le studio)"]];
+  const FORMATS: [Format, string][] = [["psd", "PSD en calques (Procreate)"], ["png", "PNG haute définition"], ["png_calques", "Un PNG par calque (.zip, pour Canva)"], ["svg", "SVG vectoriel"], ["deplacement", "Carte de déplacement (relief en niveaux de gris)"], ["details", "Vues de détail (col, poignet, poche, étiquette)"], ["pdf", "Fiche technique PDF (pour le fabricant)"], ["json", "Projet .json (à rouvrir dans le studio)"]];
   return (
     <div className="stack">
       <div><span className="eyebrow">Étape 7</span><h2>Export</h2></div>
@@ -301,12 +306,22 @@ export function EtapeExport({ toast }: { toast: (s: string) => void }) {
       <div className="grid2">
         <div className="stack" style={{ gap: 4 }}>
           <span className="eyebrow">Vues</span>
-          {VUES.map((v) => <label key={v} className="check"><input type="checkbox" checked={vues.includes(v)} onChange={() => setVues(bascule(vues, v))} />{NOMS_VUES[v]}</label>)}
+          {vuesDispo.map((v) => <label key={v} className="check"><input type="checkbox" checked={vues.includes(v)} onChange={() => setVues(bascule(vues, v))} />{NOMS_VUES[v]}</label>)}
         </div>
         <div className="stack" style={{ gap: 4 }}>
           <span className="eyebrow">Tailles</span>
           {TAILLES.map((t) => <label key={t} className="check"><input type="checkbox" checked={tailles.includes(t)} onChange={() => setTailles(bascule(tailles, t))} />{t}</label>)}
         </div>
+      </div>
+      <div className="stack" style={{ gap: 4 }}>
+        <span className="eyebrow">Coloris (export par lot)</span>
+        <p className="note" style={{ margin: 0 }}>Rien de coché : la couleur du projet. Sinon, chaque coloris coché est exporté.</p>
+        <label className="check"><input type="checkbox" checked={coloris.includes("trait")} onChange={() => setColoris(bascule(coloris, "trait"))} />Trait seul</label>
+        {palette.map((c) => (
+          <label key={c.id} className="check"><input type="checkbox" checked={coloris.includes(c.id)} onChange={() => setColoris(bascule(coloris, c.id))} />
+            <span style={{ width: 16, height: 16, borderRadius: 4, background: c.hex, border: "1px solid var(--line)" }} />{c.nom}{c.pantone ? ` · ${c.pantone}` : ""}</label>
+        ))}
+        {!palette.length && <p className="note" style={{ margin: 0 }}>Ajoute des couleurs à la palette de la marque (étape 3) pour exporter plusieurs coloris d'un coup.</p>}
       </div>
       <label className="check"><input type="checkbox" checked={transparent} onChange={(e) => setTransparent(e.target.checked)} />Fond transparent</label>
       <div className="stack" style={{ gap: 4 }}>
@@ -321,7 +336,7 @@ export function EtapeExport({ toast }: { toast: (s: string) => void }) {
       {avert.map((a) => <div key={a} className="alerte">{a}</div>)}
       {erreur && <div className="erreur">{erreur}</div>}
       <button className="btn primary" disabled={!!encours || !formats.length || !vues.length || !tailles.length} onClick={lancer}>
-        {encours || `Exporter (${vues.length * tailles.length} vue${vues.length * tailles.length > 1 ? "s" : ""})`}
+        {encours || `Exporter (${vues.length * tailles.length * Math.max(1, lots.length)} vue${vues.length * tailles.length * Math.max(1, lots.length) > 1 ? "s" : ""})`}
       </button>
     </div>
   );

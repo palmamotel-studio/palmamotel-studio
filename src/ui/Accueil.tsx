@@ -8,6 +8,7 @@ import { useEditeur } from "../etat/store";
 import { rendreProjet } from "../etat/calcul";
 import { svgDe } from "../moteur/rendu";
 import { Generateur } from "./Generateur";
+import { Comparaison } from "./Comparaison";
 
 function Vignette({ r }: { r: ResumeProjet }) {
   const svg = useMemo(() => {
@@ -21,6 +22,8 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
   const [projets, setProjets] = useState<ResumeProjet[] | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [aSupprimer, setASupprimer] = useState<string | null>(null);
+  const [comparer, setComparer] = useState<string[] | null>(null);
+  const [comparaison, setComparaison] = useState<[ResumeProjet, ResumeProjet] | null>(null);
   const fichier = useRef<HTMLInputElement>(null);
 
   const charger = () =>
@@ -46,6 +49,13 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
   }
 
   const familles = Object.keys(NOMS_FAMILLES) as Famille[];
+  if (comparaison) return <Comparaison a={comparaison[0]} b={comparaison[1]} fermer={() => { setComparaison(null); setComparer(null); }} />;
+  const choisir = (r: ResumeProjet) => {
+    if (!comparer) return ouvrir(r.data);
+    const l = comparer.includes(r.id) ? comparer.filter((x) => x !== r.id) : [...comparer, r.id].slice(-2);
+    setComparer(l);
+    if (l.length === 2) setComparaison([projets!.find((x) => x.id === l[0])!, projets!.find((x) => x.id === l[1])!]);
+  };
   return (
     <div className="page">
       <header className="entete">
@@ -67,6 +77,7 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
         <div className="row" style={{ justifyContent: "space-between" }}>
           <h1 style={{ fontFamily: "var(--f-head)", fontStretch: "85%", fontSize: 26 }}>Vos mock-ups</h1>
           <div className="row">
+            {(projets?.length || 0) >= 2 && <button className="btn" aria-pressed={!!comparer} onClick={() => setComparer(comparer ? null : [])}>{comparer ? "Annuler la comparaison" : "Comparer deux mock-ups"}</button>}
             <button className="btn" onClick={() => fichier.current?.click()}>Importer un projet (.json)</button>
             <input ref={fichier} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importer(f); e.target.value = ""; }} />
           </div>
@@ -76,10 +87,12 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
         ) : projets.length === 0 ? (
           <p className="muted">Aucun mock-up pour l'instant. Choisis une pièce ci-dessous pour commencer.</p>
         ) : (
+          <>
+          {comparer && <p className="note" style={{ margin: 0 }}>Touche deux mock-ups à comparer ({comparer.length}/2).</p>}
           <div className="projets">
             {projets.map((r) => (
               <div key={r.id} style={{ position: "relative" }}>
-                <button className="projet" style={{ width: "100%" }} onClick={() => ouvrir(r.data)}>
+                <button className="projet" style={{ width: "100%", outline: comparer?.includes(r.id) ? "3px solid var(--accent)" : undefined }} onClick={() => choisir(r)}>
                   <Vignette r={r} />
                   <div className="infos">
                     <span className="t">{r.nom}</span>
@@ -100,6 +113,7 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
               </div>
             ))}
           </div>
+          </>
         )}
       </section>
 

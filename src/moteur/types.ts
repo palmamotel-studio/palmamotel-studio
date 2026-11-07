@@ -6,9 +6,10 @@
  * (voir echelle.ts).
  */
 
-export type Vue = "face" | "dos";
+export type Vue = "face" | "dos" | "profil";
+/** Vues proposées par défaut ; certains gabarits ajoutent le profil (voir Gabarit.vues). */
 export const VUES: Vue[] = ["face", "dos"];
-export const NOMS_VUES: Record<Vue, string> = { face: "Face", dos: "Dos" };
+export const NOMS_VUES: Record<Vue, string> = { face: "Face", dos: "Dos", profil: "Profil" };
 
 export type Taille = "XS" | "S" | "M" | "L" | "XL";
 export const TAILLES: Taille[] = ["XS", "S", "M", "L", "XL"];
@@ -126,6 +127,8 @@ export interface Gabarit {
   /** Poses proposées (une seule = pas de choix affiché). */
   poses: Pose[];
   dessiner: (m: Mesures, vue: Vue, pose: Pose, f?: Finitions) => Dessin;
+  /** Vues disponibles (par défaut face et dos). */
+  vues?: Vue[];
   /** Finitions proposées pour cette pièce (étape 4). */
   finitions: (keyof Finitions)[];
   zones: (m: Mesures, vue: Vue) => ZoneImpression[];

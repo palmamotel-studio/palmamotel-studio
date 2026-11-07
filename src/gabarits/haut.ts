@@ -94,7 +94,62 @@ function construire(cfg: ConfigHaut) {
     return { H, W, tour };
   }
 
+  /** Vue de profil : corps vu de côté, manche tombante, capuche ou col de profil. */
+  function dessinerProfil(m: Mesures, fin: Finitions) {
+    const p = points(m, "le_long", cfg);
+    const t: Trace[] = [];
+    const D = lire(m, "demi_poitrine", 580) * 0.42;
+    const yB = p.coteBas ? p.yCote : p.L;
+    const corps: Pt[] = [[-D * 0.42, p.pente * 0.6], [-D * 0.5, p.UA[1]], [-D * 0.5, yB], [D * 0.5, yB], [D * 0.52, p.UA[1]], [D * 0.4, p.pente * 0.4], [0, -4]];
+    t.push({ role: "piece", d: lisse(corps, true, 0.7), nom: "Corps" });
+    if (p.coteBas) {
+      const c: Pt[] = [[-D * 0.47, p.yCote], [D * 0.47, p.yCote], [D * 0.46, p.L], [-D * 0.46, p.L]];
+      t.push({ role: cfg.bas === "cote" ? "cote" : "piece", d: ligne(c, true), nom: "Bas" });
+      if (cfg.bas === "cote") t.push({ role: "pli", d: rayures(c[0], c[1], c[3], c[2], 4), nom: "Côtes bas" });
+    } else t.push({ role: "surpiqure", d: ligne([[-D * 0.48, p.L - 22], [D * 0.48, p.L - 22]]), nom: "Ourlet bas" });
+    if (cfg.ouverture !== "aucune") t.push({ role: "accessoire", d: ligne([[-D * 0.5 + 3, 30], [-D * 0.5 + 3, p.L]]), nom: "Zip" });
+    if (cfg.poches.includes("kangourou")) {
+      const ph = lire(m, "poche_hauteur", 200);
+      t.push({ role: "couture", d: lisse([[-D * 0.5, yB - ph], [-D * 0.5 + 34, yB - ph + 30], [-D * 0.5 + 40, yB]]), nom: "Poche kangourou" });
+    }
+    // Manche tombante.
+    const biceps = lire(m, "largeur_manche", 230);
+    const yFin = p.pente + lire(m, "manche", 620) * 0.96;
+    const yPoignet = yFin - p.hPoignet;
+    const bout = p.bande || cfg.poignet === "elastique" ? Math.min(biceps * 0.85, lire(m, "poignet", 95) * 1.4) : lire(m, "poignet", 95);
+    const manche: Pt[] = [[-biceps * 0.42, p.pente + 40], [-biceps * 0.3, p.pente - 6], [biceps * 0.3, p.pente - 6], [biceps * 0.45, p.pente + 50], [bout * 0.55, yPoignet], [-bout * 0.45, yPoignet]];
+    t.push({ role: "piece", d: lisse(manche, true, 0.75), nom: "Manche" });
+    t.push({ role: "ombre", d: lisse([[biceps * 0.3, p.pente + 120], [biceps * 0.42, p.pente + 200], [bout * 0.5, yPoignet - 30], [bout * 0.3, yPoignet - 40]], true, 0.5) });
+    t.push({ role: "pli", d: lisse([[-biceps * 0.2, p.pente + 200], [-biceps * 0.05, p.pente + 260], [biceps * 0.15, p.pente + 300]]) });
+    if (p.bande) {
+      const pw = lire(m, "poignet", 95);
+      const c: Pt[] = [[-pw * 0.45, yPoignet], [pw * 0.55, yPoignet], [pw * 0.5, yFin], [-pw * 0.4, yFin]];
+      t.push({ role: "cote", d: ligne(c, true), nom: "Poignet" });
+      t.push({ role: "pli", d: rayures(c[0], c[1], c[3], c[2], 3.5), nom: "Côtes poignet" });
+    } else t.push({ role: "surpiqure", d: ligne([[-bout * 0.42, yPoignet - 20], [bout * 0.52, yPoignet - 20]]), nom: "Ourlet de manche" });
+    // Col / capuche de profil.
+    if (cfg.col === "capuche" || cfg.col === "cagoule") {
+      const H = lire(m, "hauteur_capuche", 360), W = lire(m, "largeur_capuche", 260) * 1.3;
+      const cap: Pt[] = [[-D * 0.34, 50], [-W * 0.42, -H * 0.35], [-W * 0.38, -H * 0.9], [W * 0.05, -H], [W * 0.5, -H * 0.62], [W * 0.48, -H * 0.12], [D * 0.42, 55]];
+      t.push({ role: "piece", d: lisse(cap, true, 0.7), nom: "Capuche" });
+      const ouv: Pt[] = [[-W * 0.42, -H * (cfg.col === "cagoule" ? 0.62 : 0.35)], [-W * 0.18, -H * (cfg.col === "cagoule" ? 0.66 : 0.45)], [-W * 0.12, -H * (cfg.col === "cagoule" ? 0.74 : 0.62)], [-W * 0.4, -H * (cfg.col === "cagoule" ? 0.8 : 0.85)]];
+      t.push({ role: "interieur", d: lisse(ouv, true, 0.6), nom: "Ouverture capuche" });
+      t.push({ role: "surpiqure", d: lisse(cap.slice(1, 5).map(([x, y]) => [x * 0.9, y * 0.94] as Pt)), nom: "Surpiqûre capuche" });
+    } else if (cfg.col === "montant" || cfg.col === "bomber") {
+      const h = lire(m, "hauteur_col", 60);
+      const c: Pt[] = [[-D * 0.32, 8], [-D * 0.3, -h], [D * 0.3, -h + 6], [D * 0.36, 10]];
+      t.push({ role: cfg.col === "bomber" ? "cote" : "piece", d: lisse(c, true, 0.8), nom: "Col" });
+    } else if (cfg.col === "chemise") {
+      t.push({ role: "piece", d: lisse([[-D * 0.34, 12], [-D * 0.28, -24], [D * 0.3, -18], [D * 0.36, 30], [-D * 0.1, 40], [-D * 0.3, 70]], true, 0.75), nom: "Col" });
+    } else {
+      t.push({ role: "cote", d: lisse([[-D * 0.34, 4], [0, -10], [D * 0.36, 4], [D * 0.34, 22], [0, 10], [-D * 0.32, 24]], true, 0.75), nom: "Col" });
+    }
+    void fin;
+    return dessin(t, [...corps, ...manche, [0, -lire(m, "hauteur_capuche", 0) - 10], [0, Math.max(p.L, yFin) + 4], [-D * 0.6, 0], [D * 0.6, 0]]);
+  }
+
   function dessiner(m: Mesures, vue: Vue, pose: Pose, fin: Finitions = FINITIONS_DEFAUT) {
+    if (vue === "profil") return dessinerProfil(m, fin);
     const p = points(m, pose, cfg);
     const dE = p.demiEncolure;
     const traces: Trace[] = [];
@@ -385,6 +440,7 @@ function construire(cfg: ConfigHaut) {
 
   function zones(m: Mesures, vue: Vue): ZoneImpression[] {
     const p = points(m, "ecartes", cfg);
+    if (vue === "profil") return [{ id: "manche", nom: "Manche", vue, cx: 0, y: p.pente + 90, l: 70, h: 240 }];
     const pc = lire(m, "demi_poitrine", 580);
     const yB = p.coteBas ? p.yCote : p.L;
     const zip = cfg.ouverture !== "aucune";
@@ -475,6 +531,7 @@ export function creerHaut(cfg: ConfigHaut): Gabarit & { _points: (m: Mesures, po
     famille: cfg.famille,
     poseParDefaut: "ecartes",
     poses: ["ecartes", "le_long"],
+    vues: ["face", "dos", "profil"],
     finitions: [
       "piqure",
       ...(cfg.poignet === "cote" || cfg.bas === "cote" || cfg.col === "rond" || cfg.col === "bomber" ? (["cotes"] as const) : []),

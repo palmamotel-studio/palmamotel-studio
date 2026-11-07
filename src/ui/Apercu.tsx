@@ -2,7 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { useEditeur } from "../etat/store";
 import { rendreProjet, mesuresDe } from "../etat/calcul";
 import { svgCote } from "../moteur/rendu";
-import { TAILLES, NOMS_VUES, type Pt, type Vue } from "../moteur/types";
+import { TAILLES, NOMS_VUES, VUES, type Pt } from "../moteur/types";
+import { details } from "../moteur/details";
 import { useVisuels } from "../etat/visuels";
 
 export type OutilRetouche = "poignees" | "dessin" | "elements";
@@ -19,6 +20,7 @@ export function Apercu({ outil, epaisseur, couleurTrait }: Props) {
   const versionVisuels = useVisuels((s) => s.version);
   const svgRef = useRef<SVGSVGElement>(null);
   const [trait, setTrait] = useState<Pt[] | null>(null);
+  const [detail, setDetail] = useState<string>("");
   const glisse = useRef<{ cle: string; depart: Pt; valeur: number; axe: Pt; facteur: number } | null>(null);
   const glisseEl = useRef<{ id: string; dx: number; dy: number } | null>(null);
 
@@ -27,7 +29,10 @@ export function Apercu({ outil, epaisseur, couleurTrait }: Props) {
   if (!projet || !r || !calc) return null;
   const { g, cm, mm } = calc;
   const pose = g.poses.includes(projet.pose) ? projet.pose : g.poseParDefaut;
-  const vb = r.viewBox;
+  const vuesDispo = g.vues ?? VUES;
+  const zooms = details(r);
+  const zoom = zooms.find((z) => z.id === detail);
+  const vb = zoom ?? r.viewBox;
   const avecReperes = projet.zonesActives.length > 0;
   const interne = r.calques.filter((c) => !c.masque || (c.id === "reperes" && avecReperes)).map((c) => `<g${c.fusion !== "normal" ? ` style="mix-blend-mode:${c.fusion}"` : ""}>${c.contenu}</g>`).join("");
   const elementsVue = (projet.elements || []).filter((e) => e.vue === vue);
@@ -96,10 +101,16 @@ export function Apercu({ outil, epaisseur, couleurTrait }: Props) {
     <section className="apercu" aria-label="Aperçu du mock-up">
       <div className="outils">
         <div className="seg" role="group" aria-label="Vue">
-          {(["face", "dos"] as Vue[]).map((v) => (
+          {vuesDispo.map((v) => (
             <button key={v} aria-pressed={vue === v} onClick={() => set({ vue: v })}>{NOMS_VUES[v]}</button>
           ))}
         </div>
+        {zooms.length > 0 && (
+          <select aria-label="Détail" value={detail} onChange={(e) => setDetail(e.target.value)} style={{ width: "auto", minHeight: 40 }}>
+            <option value="">Vue entière</option>
+            {zooms.map((z) => <option key={z.id} value={z.id}>Détail : {z.nom}</option>)}
+          </select>
+        )}
         <div className="seg tailles" role="group" aria-label="Taille affichée">
           {TAILLES.map((t) => (
             <button key={t} aria-pressed={taille === t} onClick={() => set({ taille: t })}>{t}</button>

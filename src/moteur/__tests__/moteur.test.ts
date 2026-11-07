@@ -80,7 +80,7 @@ describe("Hoodie", () => {
 describe("tous les gabarits disponibles", () => {
   for (const e of CATALOGUE.filter((c) => c.gabarit)) {
     const g = e.gabarit!;
-    for (const t of TAILLES) for (const v of VUES) for (const pose of g.poses) {
+    for (const t of TAILLES) for (const v of g.vues ?? VUES) for (const pose of g.poses) {
       it(`${g.nom} ${t} ${v} ${pose} se dessine sans valeur invalide`, () => {
         const mm = enMm(mesuresCm(g.mesures, {}, t));
         const d = g.dessiner(mm, v, pose);

@@ -5,12 +5,15 @@ import type { Taille, Vue } from "../moteur/types";
 import { NOMS_VUES } from "../moteur/types";
 import { rendreProjet } from "../etat/calcul";
 import { svgDe, type Rendu } from "../moteur/rendu";
+import { details } from "../moteur/details";
+import { pxParMm } from "../moteur/echelle";
+import { ficheTechnique } from "./fiche";
 import { mmEnPx, calquesProcreateEstimes, PROCREATE } from "../moteur/echelle";
 import { versBlob } from "./raster";
 import { calqueCanvas, compositeCanvas } from "./canvas";
 import { precharger } from "../etat/visuels";
 
-export type Format = "psd" | "png" | "png_calques" | "svg" | "json" | "deplacement";
+export type Format = "psd" | "png" | "png_calques" | "svg" | "json" | "deplacement" | "details" | "pdf";
 export type Prereglage = "procreate" | "canva" | "impression" | "reseaux";
 
 export const PREREGLAGES: Record<Prereglage, { nom: string; aide: string; dpi: number; formats: Format[] }> = {
@@ -20,7 +23,12 @@ export const PREREGLAGES: Record<Prereglage, { nom: string; aide: string; dpi: n
   reseaux: { nom: "Réseaux sociaux", aide: "PNG carré sur fond blanc, léger.", dpi: 72, formats: ["png"] },
 };
 
+/** Un coloris à exporter (null = trait seul). */
+export interface Coloris { nom: string; hex: string | null; pantone: string }
+
 export interface Demande {
+  /** Plusieurs coloris = export par lot ; vide = couleur du projet. */
+  coloris?: Coloris[];
   vues: Vue[];
   tailles: Taille[];
   formats: Format[];
@@ -91,13 +99,35 @@ function carteDeplacement(p: Projet, vue: Vue, t: Taille, dpi: number): HTMLCanv
   const r = rendreProjet(gris, vue, t, "dep");
   const c = calqueCanvas(r, "base", dpi);
   const g = c.getContext("2d")!;
+  g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalCompositeOperation = "multiply"; g.drawImage(calqueCanvas(r, "ombres", dpi), 0, 0);
   g.globalCompositeOperation = "screen"; g.drawImage(calqueCanvas(r, "lumieres", dpi), 0, 0);
   return c;
 }
 
 /** Produit tous les fichiers demandés. */
+export function avecColoris(p: Projet, c: Coloris): Projet {
+  return { ...p, couleur: c.hex ? { ...p.couleur, traitSeul: false, principale: c.hex, pantone: c.pantone } : { ...p.couleur, traitSeul: true } };
+}
+
 export async function produire(p: Projet, d: Demande, progression?: (t: string) => void): Promise<{ nom: string; donnees: Uint8Array; type: string }[]> {
+  const lots = d.coloris && d.coloris.length ? d.coloris : [null];
+  const tous: { nom: string; donnees: Uint8Array; type: string }[] = [];
+  for (const c of lots) {
+    const pc = c ? avecColoris(p, c) : p;
+    tous.push(...(await produireUn(pc, { ...d, formats: d.formats.filter((f) => f !== "json" && f !== "pdf") }, (t) => progression?.(`${c ? c.nom + " · " : ""}${t}`))));
+  }
+  if (d.formats.includes("pdf")) {
+    progression?.("Fiche technique");
+    tous.push({ nom: nomFichier(p, null, null, "pdf").replace(".pdf", "_fiche-technique.pdf"), donnees: await ficheTechnique(p), type: "application/pdf" });
+  }
+  if (d.formats.includes("json")) {
+    tous.push({ nom: nomFichier(p, null, null, "palma.json"), donnees: new TextEncoder().encode(JSON.stringify(p, null, 2)), type: "application/json" });
+  }
+  return tous;
+}
+
+async function produireUn(p: Projet, d: Demande, progression?: (t: string) => void): Promise<{ nom: string; donnees: Uint8Array; type: string }[]> {
   const fichiers: { nom: string; donnees: Uint8Array; type: string }[] = [];
   const u8 = async (b: Blob) => new Uint8Array(await b.arrayBuffer());
   const images = await precharger((p.elements || []).map((e) => e.visuel).filter((v): v is string => !!v));
@@ -106,6 +136,19 @@ export async function produire(p: Projet, d: Demande, progression?: (t: string) 
       progression?.(`${NOMS_VUES[vue]} · ${t}`);
       const r = rendreProjet(p, vue, t, `ex-${vue}-${t}`);
       if (!d.fondTransparent) r.calques.forEach((c) => { if (c.id === "fond") c.masque = false; });
+      if (d.formats.includes("details")) {
+        const comp = compositeCanvas(r, d.dpi, !d.fondTransparent, images);
+        const k = pxParMm(d.dpi);
+        for (const z of details(r)) {
+          await pause();
+          const c = document.createElement("canvas");
+          c.width = Math.round(z.l * k); c.height = Math.round(z.h * k);
+          const g = c.getContext("2d")!;
+          if (!d.fondTransparent) { g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); }
+          g.drawImage(comp, (z.x - r.viewBox.x) * k, (z.y - r.viewBox.y) * k, z.l * k, z.h * k, 0, 0, c.width, c.height);
+          fichiers.push({ nom: nomFichier(p, vue, t, "").replace(/\.$/, "") + `_detail-${z.id}.png`, donnees: await u8(await versBlob(c)), type: "image/png" });
+        }
+      }
       if (d.formats.includes("deplacement")) {
         await pause();
         fichiers.push({ nom: nomFichier(p, vue, t, "").replace(/\.$/, "") + "_carte-deplacement.png", donnees: await u8(await versBlob(carteDeplacement(p, vue, t, d.dpi))), type: "image/png" });
@@ -152,9 +195,6 @@ export async function produire(p: Projet, d: Demande, progression?: (t: string) 
         }
       }
     }
-  }
-  if (d.formats.includes("json")) {
-    fichiers.push({ nom: nomFichier(p, null, null, "palma.json"), donnees: new TextEncoder().encode(JSON.stringify(p, null, 2)), type: "application/json" });
   }
   return fichiers;
 }

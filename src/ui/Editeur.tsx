@@ -122,7 +122,7 @@ export function Editeur({ ctx }: { ctx: Contexte }) {
             {etape === "finitions" && <EtapeFinitions />}
             {etape === "elements" && <EtapeElements ctx={ctx} />}
             {etape === "retouches" && <EtapeRetouches outil={outil} setOutil={setOutil} epaisseur={epaisseur} setEpaisseur={setEpaisseur} couleurTrait={couleurTrait} setCouleurTrait={setCouleurTrait} />}
-            {etape === "export" && <EtapeExport toast={toast} />}
+            {etape === "export" && <EtapeExport toast={toast} ctx={ctx} />}
           </div>
           <div className="nav">
             <button className="btn" disabled={idx === 0} onClick={() => aller(ETAPES[idx - 1].id)}>← {idx > 0 ? ETAPES[idx - 1].nom : "Précédent"}</button>

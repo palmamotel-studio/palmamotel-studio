@@ -34,6 +34,7 @@ export function compositeCanvas(r: Rendu, dpi: number, avecFond: boolean, images
   const ids = r.calques.filter((c) => !c.vide && (!c.masque || (c.id === "fond" && avecFond))).map((c) => c.id);
   const base = calqueCanvas(r, ids[0], dpi, images);
   const g = base.getContext("2d")!;
+  g.setTransform(1, 0, 0, 1, 0, 0); // on assemble en pixels, sans l'échelle mm du calque
   for (const id of ids.slice(1)) {
     const cal = r.calques.find((c) => c.id === id)!;
     g.globalCompositeOperation = MODES[cal.fusion];

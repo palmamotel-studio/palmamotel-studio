@@ -39,7 +39,7 @@ export interface Projet {
   // 6. Éléments posés (étiquettes, patchs…)
   elements: Element[];
   zonesActives: string[];
-  retouches: Record<Vue, Retouche[]>;
+  retouches: Partial<Record<Vue, Retouche[]>>;
   notes: string;
 }
 
@@ -81,7 +81,7 @@ export function normaliser(brut: any): Projet | null {
     ...brut,
     matiere: { ...base.matiere, ...(brut.matiere || {}) },
     couleur: { ...base.couleur, ...(brut.couleur || {}) },
-    retouches: { face: brut.retouches?.face || [], dos: brut.retouches?.dos || [] },
+    retouches: { face: brut.retouches?.face || [], dos: brut.retouches?.dos || [], profil: brut.retouches?.profil || [] },
     finitions: { ...base.finitions, ...(brut.finitions || {}) },
     elements: Array.isArray(brut.elements) ? brut.elements : [],
     tableau: brut.tableau || {},
