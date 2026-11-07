@@ -11,6 +11,16 @@ Adresse : **https://palmamotel-studio.github.io/palmamotel-studio/**
 3. Choisis une pièce, puis suis les 7 étapes : Pièce → Tailles & mesures → Matière & couleur → Finitions → Éléments → Retouches → Export.
 4. Tout est enregistré automatiquement et partagé entre vous deux.
 
+## Ce que fait l'outil
+
+- **31 pièces** : T-shirt, manches longues, polo, débardeur, sweat col rond, hoodie, hoodie zippé ; 10 vestes (cagoule zippée, coach, bomber, varsity, coupe-vent, harrington, jean, track, doudoune, softshell) ; jogging, short, pantalon droit, cargo ; short de bain, bikini haut et bas ; casquette, bob, bonnet, tote bag, chaussettes.
+- **Vues** : face, dos, profil (hauts à manches longues et vestes), zooms de détail (col, poignet, poche, étiquette).
+- **Tailles XS à XL** avec gradation, mesures guidées avec cotes sur le dessin, score de précision.
+- **Finitions** (surpiqûres, côtes, bas, cordons, embouts, œillets, zips), **effets matière**, plis selon le grammage.
+- **Éléments** : étiquettes, hang tag, patchs, boutons, pressions, œillets ; import de vos visuels ; bibliothèque de marque partagée.
+- **Export** : PSD en calques (dossier Éléments, Lumières, Ombres et plis, TON DESIGN ICI, REPÈRES), PNG, PNG par calque, SVG, carte de déplacement, détails, fiche technique PDF, projet .json ; par lot de coloris et de tailles.
+- **Comparaison** de deux mock-ups, générateur à partir de dessins, espace partagé.
+
 ## Générateur à partir de dessins
 
 Sur l'accueil, « Générer à partir de dessins » : dépose jusqu'à 4 dessins ou photos et/ou une description. Claude (modèle `claude-opus-5-5`) choisit la pièce du catalogue la plus proche, reprend les mesures données, la couleur, la matière, les zones d'impression et note les détails à reprendre à la main.
