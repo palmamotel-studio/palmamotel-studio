@@ -1,6 +1,7 @@
 import type { EntreeCatalogue, Gabarit } from "../moteur/types";
 import { tshirt } from "./tshirt";
 import { hoodie } from "./hoodie";
+import { crewneck, manchesLongues, hoodieZip, vesteCagoule, coach, bomber, varsity, coupeVent, harrington, jean, track, doudoune, softshell } from "./vague2";
 
 /**
  * CATALOGUE — toutes les pièces prévues.
@@ -11,22 +12,22 @@ export const CATALOGUE: EntreeCatalogue[] = [
   // Hauts
   { id: "tshirt", nom: "T-shirt", famille: "hauts", vague: 1, gabarit: tshirt },
   { id: "hoodie", nom: "Hoodie", famille: "hauts", vague: 1, gabarit: hoodie },
-  { id: "crewneck", nom: "Sweat col rond", famille: "hauts", vague: 2 },
-  { id: "manches_longues", nom: "T-shirt manches longues", famille: "hauts", vague: 2 },
-  { id: "hoodie_zip", nom: "Hoodie zippé", famille: "hauts", vague: 2 },
+  { id: "crewneck", nom: "Sweat col rond", famille: "hauts", vague: 2, gabarit: crewneck },
+  { id: "manches_longues", nom: "T-shirt manches longues", famille: "hauts", vague: 2, gabarit: manchesLongues },
+  { id: "hoodie_zip", nom: "Hoodie zippé", famille: "hauts", vague: 2, gabarit: hoodieZip },
   { id: "polo", nom: "Polo", famille: "hauts", vague: 3 },
   { id: "debardeur", nom: "Débardeur", famille: "hauts", vague: 3 },
   // Vestes
-  { id: "veste_cagoule", nom: "Veste cagoule zippée", famille: "vestes", vague: 2 },
-  { id: "coach", nom: "Coach jacket", famille: "vestes", vague: 2 },
-  { id: "bomber", nom: "Bomber", famille: "vestes", vague: 2 },
-  { id: "varsity", nom: "Varsity", famille: "vestes", vague: 2 },
-  { id: "coupe_vent", nom: "Coupe-vent", famille: "vestes", vague: 2 },
-  { id: "harrington", nom: "Harrington", famille: "vestes", vague: 2 },
-  { id: "jean", nom: "Veste en jean", famille: "vestes", vague: 2 },
-  { id: "track", nom: "Track jacket", famille: "vestes", vague: 2 },
-  { id: "doudoune", nom: "Doudoune", famille: "vestes", vague: 2 },
-  { id: "softshell", nom: "Softshell zippée", famille: "vestes", vague: 2 },
+  { id: "veste_cagoule", nom: "Veste cagoule zippée", famille: "vestes", vague: 2, gabarit: vesteCagoule },
+  { id: "coach", nom: "Coach jacket", famille: "vestes", vague: 2, gabarit: coach },
+  { id: "bomber", nom: "Bomber", famille: "vestes", vague: 2, gabarit: bomber },
+  { id: "varsity", nom: "Varsity", famille: "vestes", vague: 2, gabarit: varsity },
+  { id: "coupe_vent", nom: "Coupe-vent", famille: "vestes", vague: 2, gabarit: coupeVent },
+  { id: "harrington", nom: "Harrington", famille: "vestes", vague: 2, gabarit: harrington },
+  { id: "jean", nom: "Veste en jean", famille: "vestes", vague: 2, gabarit: jean },
+  { id: "track", nom: "Track jacket", famille: "vestes", vague: 2, gabarit: track },
+  { id: "doudoune", nom: "Doudoune", famille: "vestes", vague: 2, gabarit: doudoune },
+  { id: "softshell", nom: "Softshell zippée", famille: "vestes", vague: 2, gabarit: softshell },
   // Bas
   { id: "jogging", nom: "Jogging", famille: "bas", vague: 3 },
   { id: "short", nom: "Short", famille: "bas", vague: 3 },
