@@ -11,6 +11,17 @@ Adresse : **https://palmamotel-studio.github.io/palmamotel-studio/**
 3. Choisis une pièce, puis suis les 7 étapes : Pièce → Tailles & mesures → Matière & couleur → Finitions → Éléments → Retouches → Export.
 4. Tout est enregistré automatiquement et partagé entre vous deux.
 
+## Générateur à partir de dessins
+
+Sur l'accueil, « Générer à partir de dessins » : dépose jusqu'à 4 dessins ou photos et/ou une description. Claude (modèle `claude-opus-5-5`) choisit la pièce du catalogue la plus proche, reprend les mesures données, la couleur, la matière, les zones d'impression et note les détails à reprendre à la main.
+
+Installation (une fois) :
+1. Clé API Anthropic : console.anthropic.com → API Keys (facturation à l'usage).
+2. Supabase → Edge Functions → Secrets : ajouter `ANTHROPIC_API_KEY`.
+3. Supabase → Edge Functions → Deploy a new function → Via Editor : nom `generer-mockup`, coller `supabase/functions/generer-mockup/index.ts`, Deploy.
+
+La clé reste côté serveur ; la fonction vérifie que l'utilisateur est membre de l'équipe.
+
 ## Lancer en local (développeurs)
 
 ```bash

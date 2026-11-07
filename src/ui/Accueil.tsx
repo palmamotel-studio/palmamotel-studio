@@ -7,6 +7,7 @@ import { nouveauProjet, normaliser, nouvelId } from "../etat/projet";
 import { useEditeur } from "../etat/store";
 import { rendreProjet } from "../etat/calcul";
 import { svgDe } from "../moteur/rendu";
+import { Generateur } from "./Generateur";
 
 function Vignette({ r }: { r: ResumeProjet }) {
   const svg = useMemo(() => {
@@ -56,6 +57,11 @@ export function Accueil({ ctx }: { ctx: Contexte }) {
       </header>
 
       {erreur && <div className="erreur">{erreur}</div>}
+
+      <section className="stack">
+        <h2 style={{ fontFamily: "var(--f-head)", fontStretch: "85%", fontSize: 22 }}>Générer à partir de dessins</h2>
+        <Generateur ctx={ctx} numero={(projets?.length || 0) + 1} />
+      </section>
 
       <section className="stack">
         <div className="row" style={{ justifyContent: "space-between" }}>
