@@ -1,4 +1,5 @@
-import type { Gabarit, Mesures, Pose, Pt, Trace, Vue, ZoneImpression, Alerte, Poignee, DefMesure, Famille } from "../moteur/types";
+import type { Gabarit, Mesures, Pose, Pt, Trace, Vue, ZoneImpression, Alerte, Poignee, DefMesure, Famille, Finitions } from "../moteur/types";
+import { FINITIONS_DEFAUT } from "../moteur/types";
 import { add, mul, dir, perp, ligne, lisse, decaler, rayures, lerp, sub, norm, quad, miroir, Chemin } from "../moteur/geom";
 import { lire, dessin, cubique, encolure } from "./commun";
 
@@ -93,7 +94,7 @@ function construire(cfg: ConfigHaut) {
     return { H, W, tour };
   }
 
-  function dessiner(m: Mesures, vue: Vue, pose: Pose) {
+  function dessiner(m: Mesures, vue: Vue, pose: Pose, fin: Finitions = FINITIONS_DEFAUT) {
     const p = points(m, pose, cfg);
     const dE = p.demiEncolure;
     const traces: Trace[] = [];
@@ -168,9 +169,11 @@ function construire(cfg: ConfigHaut) {
       const yHaut = cfg.col === "cagoule" ? -lire(m, "hauteur_capuche", 360) * 0.62 : cfg.col === "montant" || cfg.col === "bomber" ? -lire(m, "hauteur_col", 60) : profEnc;
       if (cfg.ouverture === "zip") {
         traces.push({ role: "accessoire", d: ligne([[-3.5, yHaut], [-3.5, p.L]]) + " " + ligne([[3.5, yHaut], [3.5, p.L]]), nom: "Zip" });
-        const dents = new Chemin();
-        for (let y = yHaut + 4; y < p.L - 2; y += 4) dents.m([-3.5, y]).l([3.5, y + 2]);
-        traces.push({ role: "couture", d: dents.toString(), nom: "Dents du zip" });
+        if (fin.zip !== "invisible") {
+          const dents = new Chemin();
+          for (let y = yHaut + 4; y < p.L - 2; y += 4) dents.m([-3.5, y]).l([3.5, y + 2]);
+          traces.push({ role: "couture", d: dents.toString(), nom: "Dents du zip" });
+        }
         traces.push({ role: "surpiqure", d: ligne([[-10, yHaut + 6], [-10, p.L - 4]]) + " " + ligne([[10, yHaut + 6], [10, p.L - 4]]), nom: "Surpiqûre zip" });
         traces.push({ role: "accessoire", d: `M -6 ${yHaut + 8} h 12 v 30 h -12 Z`, nom: "Tirette" });
       } else {
@@ -360,7 +363,7 @@ function construire(cfg: ConfigHaut) {
           [[-48, 32], [48, 32]].forEach(([x, y], i) => {
             const bt: Pt = [x + (i ? 8 : -8), y + lgCordon * 0.75];
             traces.push({ role: "accessoire", d: `M ${x} ${y} Q ${x + (i ? 4 : -4)} ${y + lgCordon * 0.4} ${bt[0]} ${bt[1]}`, nom: "Cordon" });
-            traces.push({ role: "accessoire", d: `M ${bt[0] - 3.5} ${bt[1]} h 7 v 26 h -7 Z`, nom: "Embout" });
+            traces.push({ role: "accessoire", d: fin.embout === "noeud" ? rond([bt[0], bt[1] + 6], 7) : `M ${bt[0] - 3.5} ${bt[1]} h 7 v 26 h -7 Z`, nom: "Embout" });
             traces.push({ role: "accessoire", d: rond([x, y], 5), nom: "Œillet" });
             temoins.push(bt);
           });
@@ -472,6 +475,13 @@ export function creerHaut(cfg: ConfigHaut): Gabarit & { _points: (m: Mesures, po
     famille: cfg.famille,
     poseParDefaut: "ecartes",
     poses: ["ecartes", "le_long"],
+    finitions: [
+      "piqure",
+      ...(cfg.poignet === "cote" || cfg.bas === "cote" || cfg.col === "rond" || cfg.col === "bomber" ? (["cotes"] as const) : []),
+      ...(cfg.col === "capuche" ? (["cordon", "embout", "oeillet"] as const) : []),
+      ...(cfg.ouverture === "zip" || cfg.poches.some((p) => p.includes("zip")) ? (["zip", "couleurZip"] as const) : []),
+      ...(cfg.col === "rond" ? (["bandeProprete"] as const) : []),
+    ],
     mesures: mesures(cfg),
     ...c,
     _points: (m, pose) => points(m, pose, cfg),

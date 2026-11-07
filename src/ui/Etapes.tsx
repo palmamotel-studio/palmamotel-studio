@@ -144,7 +144,7 @@ export function EtapeMatiere({ ctx }: { ctx: Contexte }) {
           {EFFETS.map((m) => <option key={m}>{m}</option>)}
         </select>
       </label>
-      <p className="note">Le rendu visuel des effets (chiné, délavé…) et l'influence du grammage sur les plis arrivent en vague 2. Ces infos figurent déjà dans le projet.</p>
+      <p className="note">L'effet est rendu sur un calque « Effet matière » séparé. Le grammage règle l'intensité des plis : un jersey léger plisse plus qu'un molleton épais.</p>
 
       <div className="stack" style={{ gap: 10 }}>
         <span className="eyebrow">Couleur</span>
@@ -199,20 +199,6 @@ export function EtapeMatiere({ ctx }: { ctx: Contexte }) {
           <label className="champ" style={{ width: 70 }}>Hex<input type="color" value={nouv.hex} onChange={(e) => setNouv({ ...nouv, hex: e.target.value.toUpperCase() })} style={{ minHeight: 44 }} /></label>
           <button className="btn" disabled={!nouv.nom.trim()} onClick={async () => { await ajouterCouleur(ctx.mode, { nom: nouv.nom.trim(), pantone: nouv.pantone.trim() || null, hex: nouv.hex }).catch(() => {}); setNouv({ nom: "", pantone: "", hex: nouv.hex }); charger(); }}>Ajouter</button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- 4 & 5. Finitions, Éléments (vague 2) ---------------- */
-export function EtapeBientot({ numero, titre, items }: { numero: number; titre: string; items: string[] }) {
-  return (
-    <div className="stack">
-      <div><span className="eyebrow">Étape {numero}</span><h2>{titre}</h2></div>
-      <div className="bientot">
-        <b style={{ color: "var(--ink)" }}>Arrive en vague 2.</b>
-        <ul>{items.map((i) => <li key={i}>{i}</li>)}</ul>
-        <span>Tu peux passer cette étape : le mock-up est déjà exportable.</span>
       </div>
     </div>
   );
@@ -292,7 +278,7 @@ export function EtapeExport({ toast }: { toast: (s: string) => void }) {
     }
   }
 
-  const FORMATS: [Format, string][] = [["psd", "PSD en calques (Procreate)"], ["png", "PNG haute définition"], ["png_calques", "Un PNG par calque (.zip, pour Canva)"], ["svg", "SVG vectoriel"], ["json", "Projet .json (à rouvrir dans le studio)"]];
+  const FORMATS: [Format, string][] = [["psd", "PSD en calques (Procreate)"], ["png", "PNG haute définition"], ["png_calques", "Un PNG par calque (.zip, pour Canva)"], ["svg", "SVG vectoriel"], ["deplacement", "Carte de déplacement (relief en niveaux de gris)"], ["json", "Projet .json (à rouvrir dans le studio)"]];
   return (
     <div className="stack">
       <div><span className="eyebrow">Étape 7</span><h2>Export</h2></div>

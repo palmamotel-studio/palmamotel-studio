@@ -4,7 +4,8 @@ import { useEditeur, ETAPES, type Etape } from "../etat/store";
 import { enregistrerProjet, ecouterProjets, listerProjets } from "../etat/donnees";
 import { precisionProjet } from "../etat/calcul";
 import { Apercu, type OutilRetouche } from "./Apercu";
-import { EtapePiece, EtapeMesures, EtapeMatiere, EtapeBientot, EtapeRetouches, EtapeExport } from "./Etapes";
+import { EtapePiece, EtapeMesures, EtapeMatiere, EtapeRetouches, EtapeExport } from "./Etapes";
+import { EtapeFinitions, EtapeElements } from "./EtapesVague2";
 
 export function Editeur({ ctx }: { ctx: Contexte }) {
   const { projet, etape, set, fermer, annuler, retablir, passe, futur, modifie, marquerEnregistre, remplacerDepuisDistant } = useEditeur();
@@ -112,14 +113,14 @@ export function Editeur({ ctx }: { ctx: Contexte }) {
       </nav>
 
       <div className="corps">
-        <Apercu outil={etape === "retouches" ? outil : null} epaisseur={epaisseur} couleurTrait={couleurTrait} />
+        <Apercu outil={etape === "retouches" ? outil : etape === "elements" ? "elements" : null} epaisseur={epaisseur} couleurTrait={couleurTrait} />
         <aside className="panneau">
           <div className="contenu">
             {etape === "piece" && <EtapePiece />}
             {etape === "mesures" && <EtapeMesures />}
             {etape === "matiere" && <EtapeMatiere ctx={ctx} />}
-            {etape === "finitions" && <EtapeBientot numero={4} titre="Finitions" items={["Type de col, bords-côtes (1x1, 2x2), bas droit ou arrondi", "Simple ou double aiguille, surpiqûres, flatlock", "Bande de propreté, cordons (plat/rond), embouts, œillets", "Zips (type, couleur, tirette)"]} />}
-            {etape === "elements" && <EtapeBientot numero={5} titre="Éléments" items={["Étiquettes de col, drapeau, composition, taille", "Hang tags, patchs (cuir, tissé, brodé, PVC)", "Import de vos fichiers d'étiquettes, bibliothèque de marque partagée"]} />}
+            {etape === "finitions" && <EtapeFinitions />}
+            {etape === "elements" && <EtapeElements ctx={ctx} />}
             {etape === "retouches" && <EtapeRetouches outil={outil} setOutil={setOutil} epaisseur={epaisseur} setEpaisseur={setEpaisseur} couleurTrait={couleurTrait} setCouleurTrait={setCouleurTrait} />}
             {etape === "export" && <EtapeExport toast={toast} />}
           </div>

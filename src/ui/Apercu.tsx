@@ -3,8 +3,9 @@ import { useEditeur } from "../etat/store";
 import { rendreProjet, mesuresDe } from "../etat/calcul";
 import { svgCote } from "../moteur/rendu";
 import { TAILLES, NOMS_VUES, type Pt, type Vue } from "../moteur/types";
+import { useVisuels } from "../etat/visuels";
 
-export type OutilRetouche = "poignees" | "dessin";
+export type OutilRetouche = "poignees" | "dessin" | "elements";
 
 interface Props {
   outil: OutilRetouche | null;
@@ -14,19 +15,23 @@ interface Props {
 
 /** Aperçu du vêtement : dessin, cotes de mesure, poignées de retouche et dessin libre. */
 export function Apercu({ outil, epaisseur, couleurTrait }: Props) {
-  const { projet, vue, taille, mesureActive, set, modifier } = useEditeur();
+  const { projet, vue, taille, mesureActive, elementActif, set, modifier } = useEditeur();
+  const versionVisuels = useVisuels((s) => s.version);
   const svgRef = useRef<SVGSVGElement>(null);
   const [trait, setTrait] = useState<Pt[] | null>(null);
   const glisse = useRef<{ cle: string; depart: Pt; valeur: number; axe: Pt; facteur: number } | null>(null);
+  const glisseEl = useRef<{ id: string; dx: number; dy: number } | null>(null);
 
-  const r = useMemo(() => (projet ? rendreProjet(projet, vue, taille, "ap") : null), [projet, vue, taille]);
+  const r = useMemo(() => (projet ? rendreProjet(projet, vue, taille, "ap") : null), [projet, vue, taille, versionVisuels]);
   const calc = useMemo(() => (projet ? mesuresDe(projet, taille) : null), [projet, taille]);
   if (!projet || !r || !calc) return null;
   const { g, cm, mm } = calc;
   const pose = g.poses.includes(projet.pose) ? projet.pose : g.poseParDefaut;
   const vb = r.viewBox;
   const avecReperes = projet.zonesActives.length > 0;
-  const interne = r.calques.filter((c) => !c.masque || (c.id === "reperes" && avecReperes)).map((c) => `<g${c.fusion === "multiply" ? ' style="mix-blend-mode:multiply"' : ""}>${c.contenu}</g>`).join("");
+  const interne = r.calques.filter((c) => !c.masque || (c.id === "reperes" && avecReperes)).map((c) => `<g${c.fusion !== "normal" ? ` style="mix-blend-mode:${c.fusion}"` : ""}>${c.contenu}</g>`).join("");
+  const elementsVue = (projet.elements || []).filter((e) => e.vue === vue);
+  const elSel = elementsVue.find((e) => e.id === elementActif);
 
   const def = mesureActive ? g.mesures.find((d) => d.cle === mesureActive) : null;
   const cote = def?.cote?.(mm, vue);
@@ -48,7 +53,24 @@ export function Apercu({ outil, epaisseur, couleurTrait }: Props) {
     glisse.current = { cle, depart: versMm(e), valeur: cm[cle], axe, facteur };
     set({ mesureActive: cle });
   }
+  function debutElement(e: React.PointerEvent, id: string) {
+    if (outil !== "elements") return;
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    const el = elementsVue.find((x) => x.id === id)!;
+    const p = versMm(e);
+    glisseEl.current = { id, dx: p[0] - el.x, dy: p[1] - el.y };
+    set({ elementActif: id });
+  }
   function bouge(e: React.PointerEvent) {
+    const ge = glisseEl.current;
+    if (ge) {
+      const p = versMm(e);
+      let x = p[0] - ge.dx;
+      if (Math.abs(x) < 4) x = 0; // aimant sur l'axe central
+      modifier((pr) => { const el = pr.elements.find((z) => z.id === ge.id); if (el) { el.x = Math.round(x); el.y = Math.round(p[1] - ge.dy); } }, "el-" + ge.id);
+      return;
+    }
     const gl = glisse.current;
     if (gl) {
       const p = versMm(e);
@@ -61,6 +83,7 @@ export function Apercu({ outil, epaisseur, couleurTrait }: Props) {
     if (trait) setTrait([...trait, versMm(e)]);
   }
   function fin() {
+    if (glisseEl.current) { glisseEl.current = null; return; }
     if (glisse.current) { glisse.current = null; return; }
     if (trait && trait.length > 1) {
       const t = trait;
@@ -104,6 +127,16 @@ export function Apercu({ outil, epaisseur, couleurTrait }: Props) {
           <g dangerouslySetInnerHTML={{ __html: interne }} />
           <g dangerouslySetInnerHTML={{ __html: coteSvg }} />
           {trait && <polyline points={trait.map((p) => p.join(",")).join(" ")} fill="none" stroke={couleurTrait} strokeWidth={epaisseur} strokeLinecap="round" strokeLinejoin="round" />}
+          {outil === "elements" && elementsVue.map((el) => (
+            <rect key={el.id} x={el.x - el.l / 2 - 4} y={el.y - el.h / 2 - 4} width={el.l + 8} height={el.h + 8} fill="transparent"
+              transform={`rotate(${el.rotation} ${el.x} ${el.y})`} style={{ cursor: "move" }} onPointerDown={(e) => debutElement(e, el.id)} />
+          ))}
+          {outil === "elements" && elSel && (
+            <g pointerEvents="none" transform={`rotate(${elSel.rotation} ${elSel.x} ${elSel.y})`}>
+              <rect x={elSel.x - elSel.l / 2 - 3} y={elSel.y - elSel.h / 2 - 3} width={elSel.l + 6} height={elSel.h + 6} fill="none" stroke="#d9466e" strokeWidth={1.4} strokeDasharray="4 3" />
+              <text x={elSel.x} y={elSel.y - elSel.h / 2 - 8} textAnchor="middle" fontSize={11} fontWeight={700} fill="#d9466e" fontFamily="Helvetica, Arial, sans-serif">{(elSel.l / 10).toLocaleString("fr-FR")} × {(elSel.h / 10).toLocaleString("fr-FR")} cm</text>
+            </g>
+          )}
           {poignees.map((h) => (
             <g key={h.cle} onPointerDown={(e) => debutPoignee(e, h.cle, h.axe, h.facteur)} style={{ cursor: "grab" }}>
               <circle cx={h.pos[0]} cy={h.pos[1]} r={22} fill="transparent" />

@@ -1,4 +1,5 @@
-import type { Gabarit, Mesures, Pose, Pt, Trace, Vue, ZoneImpression, Alerte, Poignee } from "../moteur/types";
+import type { Gabarit, Mesures, Pose, Pt, Trace, Vue, ZoneImpression, Alerte, Poignee, Finitions } from "../moteur/types";
+import { FINITIONS_DEFAUT } from "../moteur/types";
 import { add, mul, dir, perp, ligne, lisse, decaler, lerp, sub, norm, quad, miroir } from "../moteur/geom";
 import { encolure, lire, dessin, plis } from "./commun";
 
@@ -36,7 +37,7 @@ function points(m: Mesures, pose: Pose) {
 
 const sym = (pts: Pt[]) => pts.map(miroir);
 
-function dessiner(m: Mesures, vue: Vue, pose: Pose) {
+function dessiner(m: Mesures, vue: Vue, pose: Pose, f: Finitions = FINITIONS_DEFAUT) {
   const p = points(m, pose);
   const hCol = lire(m, "hauteur_col", 20);
   const hOurlet = lire(m, "hauteur_ourlet", 20);
@@ -44,7 +45,7 @@ function dessiner(m: Mesures, vue: Vue, pose: Pose) {
   const demiEnc = p.HPS[0];
 
   // Bas légèrement arrondi.
-  const basPts = quad(miroir(p.BAS), [0, p.L + 6], p.BAS, 24);
+  const basPts = quad(miroir(p.BAS), [0, p.L + (f.bas === "arrondi" ? 60 : 6)], p.BAS, 24);
   // Contour : droite (épaule → manche → dessous de bras → côté) puis bas puis gauche.
   const droite: Pt[] = [p.HPS, p.SP, p.SEo, p.SEi, p.UA, p.BAS];
   const gauche = sym(droite).reverse();
@@ -99,7 +100,15 @@ function dessiner(m: Mesures, vue: Vue, pose: Pose) {
   traces.push({ role: "pli", d: lisse([[p.UA[0] * 0.55, p.L * 0.55], [p.UA[0] * 0.5, p.L * 0.75], [p.UA[0] * 0.58, p.L * 0.93]]) });
   traces.push({ role: "pli", d: lisse([[-p.UA[0] * 0.35, p.L * 0.62], [-p.UA[0] * 0.4, p.L * 0.8], [-p.UA[0] * 0.33, p.L * 0.95]]) });
 
-  if (vue === "dos") {
+  if (f.bas === "fentes") {
+    // Fentes de côté : 4 cm ouverts au bas, avec point d'arrêt.
+    [1, -1].forEach((s) => {
+      const x = s * (p.BAS[0] - 1);
+      traces.push({ role: "couture", d: ligne([[x, p.L - 40], [x, p.L]]), nom: "Fente de côté" });
+      traces.push({ role: "couture", d: ligne([[x - s * 8, p.L - 40], [x, p.L - 40]]), nom: "Point d'arrêt" });
+    });
+  }
+  if (vue === "dos" && f.bandeProprete) {
     // Bande de propreté col dos (visible à l'intérieur).
     traces.push({ role: "couture", d: ligne([[-demiEnc * 0.9, profEnc + hCol + 12], [demiEnc * 0.9, profEnc + hCol + 12]]), nom: "Bande de propreté" });
   }
@@ -157,6 +166,7 @@ export const tshirt: Gabarit = {
   poseParDefaut: "ecartes",
   // Manches courtes : à plat, elles restent écartées.
   poses: ["ecartes"],
+  finitions: ["piqure", "cotes", "bas", "bandeProprete"],
   mesures: [
     { cle: "demi_poitrine", libelle: "Demi-tour de poitrine", aide: "À plat, d'un côté à l'autre, 2,5 cm sous l'emmanchure.", niveau: "obligatoire", defautM: 54, gradation: 2.5, min: 35, max: 90,
       cote: (m) => { const p = points(m, "ecartes"); return { a: [-p.UA[0], p.UA[1] + 25], b: [p.UA[0], p.UA[1] + 25] }; } },

@@ -1,4 +1,6 @@
-import type { Pose, Taille, Vue } from "../moteur/types";
+import type { Pose, Taille, Vue, Finitions } from "../moteur/types";
+import { FINITIONS_DEFAUT } from "../moteur/types";
+import type { Element } from "../moteur/elements";
 import type { TableauTailles } from "../moteur/tailles";
 import type { Retouche } from "../moteur/rendu";
 import { gabarit } from "../gabarits";
@@ -32,6 +34,10 @@ export interface Projet {
     accessoires: string;
   };
   pose: Pose;
+  // 5.6 Finitions
+  finitions: Finitions;
+  // 6. Éléments posés (étiquettes, patchs…)
+  elements: Element[];
   zonesActives: string[];
   retouches: Record<Vue, Retouche[]>;
   notes: string;
@@ -58,6 +64,8 @@ export function nouveauProjet(gabaritId: string, numero: number): Projet {
     matiere: { type: gabaritId === "hoodie" ? "french terry" : "jersey", composition: "", grammage: null, effet: "uni" },
     couleur: { traitSeul: true, principale: "#ECE2CC", pantone: "", cotes: null, interieur: null, fil: null, accessoires: "#ffffff" },
     pose: g.poseParDefaut,
+    finitions: { ...FINITIONS_DEFAUT },
+    elements: [],
     zonesActives: [],
     retouches: { face: [], dos: [] },
     notes: "",
@@ -74,6 +82,8 @@ export function normaliser(brut: any): Projet | null {
     matiere: { ...base.matiere, ...(brut.matiere || {}) },
     couleur: { ...base.couleur, ...(brut.couleur || {}) },
     retouches: { face: brut.retouches?.face || [], dos: brut.retouches?.dos || [] },
+    finitions: { ...base.finitions, ...(brut.finitions || {}) },
+    elements: Array.isArray(brut.elements) ? brut.elements : [],
     tableau: brut.tableau || {},
     zonesActives: Array.isArray(brut.zonesActives) ? brut.zonesActives : [],
   };

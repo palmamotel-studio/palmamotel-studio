@@ -99,6 +99,22 @@ export const NOMS_FAMILLES: Record<Famille, string> = {
   accessoires: "Accessoires",
 };
 
+/** Finitions de confection (étape 4). */
+export interface Finitions {
+  piqure: "simple" | "double";
+  cotes: "1x1" | "2x2";
+  bas: "droit" | "arrondi" | "fentes";
+  bandeProprete: boolean;
+  cordon: "rond" | "plat";
+  embout: "metal" | "plastique" | "silicone" | "noeud";
+  oeillet: "metal" | "brode";
+  zip: "metal" | "plastique" | "invisible";
+  couleurZip: string;
+}
+export const FINITIONS_DEFAUT: Finitions = {
+  piqure: "simple", cotes: "1x1", bas: "droit", bandeProprete: true, cordon: "rond", embout: "metal", oeillet: "metal", zip: "metal", couleurZip: "#1b1b1b",
+};
+
 /** Un gabarit décrit entièrement un type de vêtement. Le moteur ne connaît rien d'autre. */
 export interface Gabarit {
   id: string;
@@ -109,7 +125,9 @@ export interface Gabarit {
   poseParDefaut: Pose;
   /** Poses proposées (une seule = pas de choix affiché). */
   poses: Pose[];
-  dessiner: (m: Mesures, vue: Vue, pose: Pose) => Dessin;
+  dessiner: (m: Mesures, vue: Vue, pose: Pose, f?: Finitions) => Dessin;
+  /** Finitions proposées pour cette pièce (étape 4). */
+  finitions: (keyof Finitions)[];
   zones: (m: Mesures, vue: Vue) => ZoneImpression[];
   /** Contrôles de cohérence entre mesures. */
   controles?: (m: Mesures) => Alerte[];

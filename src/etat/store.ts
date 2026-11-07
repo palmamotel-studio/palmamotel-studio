@@ -23,6 +23,8 @@ interface EtatEditeur {
   taille: Taille;
   /** Mesure survolée/en cours de saisie : sa cote s'affiche sur le dessin. */
   mesureActive: string | null;
+  /** Élément sélectionné (étape Éléments). */
+  elementActif: string | null;
   modifie: boolean;
   ouvrir: (p: Projet) => void;
   fermer: () => void;
@@ -32,7 +34,7 @@ interface EtatEditeur {
   retablir: () => void;
   remplacerDepuisDistant: (p: Projet) => void;
   marquerEnregistre: () => void;
-  set: (e: Partial<Pick<EtatEditeur, "etape" | "vue" | "taille" | "mesureActive">>) => void;
+  set: (e: Partial<Pick<EtatEditeur, "etape" | "vue" | "taille" | "mesureActive" | "elementActif">>) => void;
 }
 
 let dernierGroupe: { cle: string; t: number } | null = null;
@@ -45,6 +47,7 @@ export const useEditeur = create<EtatEditeur>((set, get) => ({
   vue: "face",
   taille: "M",
   mesureActive: null,
+  elementActif: null,
   modifie: false,
   ouvrir: (p) => set({ projet: p, passe: [], futur: [], etape: "piece", vue: "face", taille: p.tailleRef, modifie: false }),
   fermer: () => set({ projet: null, passe: [], futur: [] }),

@@ -4,6 +4,7 @@ import { gabarit } from "../gabarits";
 import { mesuresCm, enMm } from "../moteur/tailles";
 import { rendre, type Rendu } from "../moteur/rendu";
 import { scorePrecision, type ChampFiche } from "../moteur/precision";
+import { urlVisuel } from "./visuels";
 
 export function mesuresDe(p: Projet, t: Taille) {
   const g = gabarit(p.gabaritId)!;
@@ -14,7 +15,7 @@ export function mesuresDe(p: Projet, t: Taille) {
 export function rendreProjet(p: Projet, vue: Vue, t: Taille, idUnique: string): Rendu {
   const { g, mm } = mesuresDe(p, t);
   const pose = g.poses.includes(p.pose) ? p.pose : g.poseParDefaut;
-  const d = g.dessiner(mm, vue, pose);
+  const d = g.dessiner(mm, vue, pose, p.finitions);
   const c = p.couleur;
   return rendre(
     d,
@@ -31,6 +32,12 @@ export function rendreProjet(p: Projet, vue: Vue, t: Taille, idUnique: string): 
       retouches: p.retouches[vue] || [],
       marge: 40,
       fond: "#ffffff",
+      finitions: p.finitions,
+      effet: p.matiere.effet,
+      grammage: p.matiere.grammage,
+      elements: (p.elements || []).filter((e) => e.vue === vue),
+      taille: t,
+      visuel: urlVisuel,
     },
     idUnique,
   );

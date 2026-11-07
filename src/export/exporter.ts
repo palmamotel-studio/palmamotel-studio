@@ -8,8 +8,9 @@ import { svgDe, type Rendu } from "../moteur/rendu";
 import { mmEnPx, calquesProcreateEstimes, PROCREATE } from "../moteur/echelle";
 import { versBlob } from "./raster";
 import { calqueCanvas, compositeCanvas } from "./canvas";
+import { precharger } from "../etat/visuels";
 
-export type Format = "psd" | "png" | "png_calques" | "svg" | "json";
+export type Format = "psd" | "png" | "png_calques" | "svg" | "json" | "deplacement";
 export type Prereglage = "procreate" | "canva" | "impression" | "reseaux";
 
 export const PREREGLAGES: Record<Prereglage, { nom: string; aide: string; dpi: number; formats: Format[] }> = {
@@ -59,42 +60,73 @@ export function avertissements(p: Projet, d: Demande): string[] {
 
 const pause = () => new Promise((ok) => setTimeout(ok, 0));
 
-async function calquesCanvas(r: Rendu, dpi: number) {
-  const out: { id: string; nom: string; canvas: HTMLCanvasElement; fusion: string; masque: boolean }[] = [];
+type Images = Map<string, HTMLImageElement>;
+
+async function calquesCanvas(r: Rendu, dpi: number, images: Images) {
+  const out: { id: string; nom: string; canvas: HTMLCanvasElement; fusion: string; masque: boolean; groupe?: string }[] = [];
   for (const c of r.calques) {
     if (c.vide) continue;
     await pause(); // laisse l'interface respirer entre deux calques
-    out.push({ id: c.id, nom: c.nom, canvas: calqueCanvas(r, c.id, dpi), fusion: c.fusion, masque: c.masque });
+    out.push({ id: c.id, nom: c.nom, canvas: calqueCanvas(r, c.id, dpi, images), fusion: c.fusion, masque: c.masque, groupe: c.groupe });
   }
   return { out };
+}
+
+/** Calques → arborescence PSD (les calques d'un même groupe vont dans un dossier). */
+function arborescence(out: Awaited<ReturnType<typeof calquesCanvas>>["out"]) {
+  const enfants: any[] = [];
+  for (const c of out) {
+    const calque = { name: c.nom, canvas: c.canvas, left: 0, top: 0, hidden: c.masque, blendMode: c.fusion === "multiply" ? "multiply" : c.fusion === "screen" ? "screen" : "normal", opacity: 1 };
+    const dernier = enfants[enfants.length - 1];
+    if (c.groupe && dernier?.children && dernier.name === c.groupe) dernier.children.push(calque);
+    else if (c.groupe) enfants.push({ name: c.groupe, opened: true, children: [calque] });
+    else enfants.push(calque);
+  }
+  return enfants;
+}
+
+/** Carte de déplacement : le relief du vêtement en niveaux de gris (gris moyen = à plat). */
+function carteDeplacement(p: Projet, vue: Vue, t: Taille, dpi: number): HTMLCanvasElement {
+  const gris = { ...p, couleur: { ...p.couleur, traitSeul: false, principale: "#808080", cotes: "#808080", interieur: "#606060" }, matiere: { ...p.matiere, effet: "uni" }, elements: [] };
+  const r = rendreProjet(gris, vue, t, "dep");
+  const c = calqueCanvas(r, "base", dpi);
+  const g = c.getContext("2d")!;
+  g.globalCompositeOperation = "multiply"; g.drawImage(calqueCanvas(r, "ombres", dpi), 0, 0);
+  g.globalCompositeOperation = "screen"; g.drawImage(calqueCanvas(r, "lumieres", dpi), 0, 0);
+  return c;
 }
 
 /** Produit tous les fichiers demandés. */
 export async function produire(p: Projet, d: Demande, progression?: (t: string) => void): Promise<{ nom: string; donnees: Uint8Array; type: string }[]> {
   const fichiers: { nom: string; donnees: Uint8Array; type: string }[] = [];
   const u8 = async (b: Blob) => new Uint8Array(await b.arrayBuffer());
+  const images = await precharger((p.elements || []).map((e) => e.visuel).filter((v): v is string => !!v));
   for (const t of d.tailles) {
     for (const vue of d.vues) {
       progression?.(`${NOMS_VUES[vue]} · ${t}`);
       const r = rendreProjet(p, vue, t, `ex-${vue}-${t}`);
       if (!d.fondTransparent) r.calques.forEach((c) => { if (c.id === "fond") c.masque = false; });
+      if (d.formats.includes("deplacement")) {
+        await pause();
+        fichiers.push({ nom: nomFichier(p, vue, t, "").replace(/\.$/, "") + "_carte-deplacement.png", donnees: await u8(await versBlob(carteDeplacement(p, vue, t, d.dpi))), type: "image/png" });
+      }
       if (d.formats.includes("svg")) {
         fichiers.push({ nom: nomFichier(p, vue, t, "svg"), donnees: new TextEncoder().encode(svgDe(r)), type: "image/svg+xml" });
       }
       if (d.formats.includes("png")) {
         await pause();
-        const c = compositeCanvas(r, d.dpi, !d.fondTransparent);
+        const c = compositeCanvas(r, d.dpi, !d.fondTransparent, images);
         fichiers.push({ nom: nomFichier(p, vue, t, "png"), donnees: await u8(await versBlob(c)), type: "image/png" });
       }
       if (d.formats.includes("psd") || d.formats.includes("png_calques")) {
-        const { out } = await calquesCanvas(r, d.dpi);
+        const { out } = await calquesCanvas(r, d.dpi, images);
         if (d.formats.includes("png_calques")) {
           for (const [i, c] of out.entries()) {
             fichiers.push({ nom: nomFichier(p, vue, t, "").replace(/\.$/, "") + `_${String(i + 1).padStart(2, "0")}-${nettoyer(c.nom)}.png`, donnees: await u8(await versBlob(c.canvas)), type: "image/png" });
           }
         }
         if (d.formats.includes("psd")) {
-          const composite = compositeCanvas(r, d.dpi, !d.fondTransparent);
+          const composite = compositeCanvas(r, d.dpi, !d.fondTransparent, images);
           const { width: l, height: h } = composite;
           const psd = writePsd(
             {
@@ -112,15 +144,7 @@ export async function produire(p: Projet, d: Demande, progression?: (t: string) 
                 },
               },
               // ag-psd : premier = calque du bas.
-              children: out.map((c) => ({
-                name: c.nom,
-                canvas: c.canvas,
-                left: 0,
-                top: 0,
-                hidden: c.masque,
-                blendMode: c.fusion === "multiply" ? "multiply" : "normal",
-                opacity: 1,
-              })),
+              children: arborescence(out),
             } as any,
             { generateThumbnail: true },
           );

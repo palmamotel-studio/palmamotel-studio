@@ -1,4 +1,6 @@
-import type { Dessin, Trace, ZoneImpression, Pt, Cote } from "./types";
+import type { Dessin, Trace, ZoneImpression, Pt, Cote, Finitions } from "./types";
+import { FINITIONS_DEFAUT } from "./types";
+import { opsElement, svgOps, nomType, type Element } from "./elements";
 
 /**
  * RENDU — transforme un dessin (en mm) en calques SVG.
@@ -28,6 +30,15 @@ export interface OptionsRendu {
   /** Marge autour du vêtement, en mm. */
   marge: number;
   fond: string;
+  finitions?: Finitions;
+  /** Effet matière : uni, chiné, garment dye, délavé, acid wash. */
+  effet?: string;
+  grammage?: number | null;
+  elements?: Element[];
+  /** Taille affichée (pour l'étiquette de taille). */
+  taille?: string;
+  /** Résout un visuel importé en URL affichable (écran). */
+  visuel?: (src: string) => string | null;
 }
 
 export type ModeFusion = "normal" | "multiply" | "screen" | "overlay";
@@ -41,6 +52,8 @@ export interface Calque {
   masque: boolean;
   /** Vide = pas besoin de l'exporter. */
   vide: boolean;
+  /** Dossier du PSD (ex. « Éléments »). */
+  groupe?: string;
 }
 
 export interface Rendu {
@@ -82,6 +95,17 @@ export function luminance(hex: string): number {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 }
 
+/** Styles dépendant des finitions, partagés entre l'écran (SVG) et l'export (canvas). */
+export function styleAccessoire(t: Trace, f: Finitions, accessoires: string, fil: string) {
+  const nom = t.nom || "";
+  const zip = /^(Zip|Tirette|Dents)/.test(nom);
+  const couleur = zip ? f.couleurZip : /^Embout/.test(nom) && f.embout === "metal" ? "#b9b9b9" : /^Œillet/.test(nom) ? (f.oeillet === "metal" ? "#b9b9b9" : fil) : accessoires;
+  const large = /^Cordon/.test(nom) && f.cordon === "plat" ? 5.2 : zip && f.zip === "invisible" ? 1.2 : 3.6;
+  return { couleur, large };
+}
+/** Intensité des plis selon le grammage : un tissu léger plisse plus qu'un molleton épais. */
+export const facteurPlis = (g?: number | null) => (!g ? 1 : g < 180 ? 1.35 : g > 350 ? 0.7 : 1);
+
 /** Calcule le rendu complet d'une vue. */
 export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
   const b = d.boite;
@@ -116,6 +140,8 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
   const c = o.couleurs;
   const T = teintes(c);
   const { tissu, cotes, interieur, fil, contour, fonce } = T;
+  const f = o.finitions ?? FINITIONS_DEFAUT;
+  const kp = facteurPlis(o.grammage);
 
   const base: string[] = [], contours: string[] = [], coutures: string[] = [], ombres: string[] = [], elements: string[] = [];
   d.traces.forEach((t: Trace, i) => {
@@ -137,20 +163,24 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
         coutures.push(`<path d="${t.d}" fill="none" stroke="${fil}" stroke-width="0.6"${mk}/>`);
         break;
       case "surpiqure":
-        coutures.push(`<path d="${t.d}" fill="none" stroke="${fil}" stroke-width="0.55" stroke-dasharray="2.4 1.6"${mk}/>`);
+        if (f.piqure === "double")
+          coutures.push(`<g${mk}><path d="${t.d}" fill="none" stroke="${fil}" stroke-width="2.9" stroke-dasharray="2.4 1.6"/><path d="${t.d}" fill="none" stroke="${tissu}" stroke-width="1.8" stroke-dasharray="2.4 1.6"/></g>`);
+        else coutures.push(`<path d="${t.d}" fill="none" stroke="${fil}" stroke-width="0.55" stroke-dasharray="2.4 1.6"${mk}/>`);
         break;
       case "pli":
-        ombres.push(`<path d="${t.d}" fill="none" stroke="${fonce ? "#000" : "#6b6b6b"}" stroke-opacity="${fonce ? 0.55 : 0.55}" stroke-width="0.45" stroke-linecap="round"${mk}/>`);
+        if (t.nom?.startsWith("Côtes")) ombres.push(`<path d="${t.d}" fill="none" stroke="${fonce ? "#000" : "#6b6b6b"}" stroke-opacity="0.55" stroke-width="${f.cotes === "2x2" ? 1 : 0.45}"${mk}/>`);
+        else ombres.push(`<path d="${t.d}" fill="none" stroke="${fonce ? "#000" : "#6b6b6b"}" stroke-opacity="${Math.min(0.9, 0.55 * kp)}" stroke-width="0.45" stroke-linecap="round"${mk}/>`);
         break;
       case "ombre":
-        ombres.push(`<path d="${t.d}" fill="#000" fill-opacity="${c.principale ? 0.16 : 0.14}"${mk}/>`);
+        ombres.push(`<path d="${t.d}" fill="#000" fill-opacity="${((c.principale ? 0.16 : 0.14) * kp).toFixed(3)}"${mk}/>`);
         break;
       case "accessoire": {
         const ferme = /Z\s*$/i.test(t.d.trim()) || /a /.test(t.d);
+        const st = styleAccessoire(t, f, c.accessoires, fil);
         elements.push(
           ferme
-            ? `<path d="${t.d}" fill="${c.accessoires}" stroke="${NOIR}" stroke-width="0.6"${mk}/>`
-            : `<path d="${t.d}" fill="none" stroke="${NOIR}" stroke-width="3.6" stroke-linecap="round"${mk}/><path d="${t.d}" fill="none" stroke="${c.accessoires}" stroke-width="2.4" stroke-linecap="round"${mk}/>`,
+            ? `<path d="${t.d}" fill="${st.couleur}" stroke="${NOIR}" stroke-width="0.6"${mk}/>`
+            : `<path d="${t.d}" fill="none" stroke="${NOIR}" stroke-width="${st.large}" stroke-linecap="round"${mk}/><path d="${t.d}" fill="none" stroke="${st.couleur}" stroke-width="${Math.max(0.6, st.large - 1.2)}" stroke-linecap="round"${mk}/>`,
         );
         break;
       }
@@ -172,9 +202,36 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
     (r) => `<path d="${r.pts.map((p, i) => `${i ? "L" : "M"} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(" ")}" fill="none" stroke="${r.couleur}" stroke-width="${r.epaisseur}" stroke-linecap="round" stroke-linejoin="round"/>`,
   );
 
+  // Effet matière et lumières : limités aux surfaces du vêtement.
+  const surfaces = remplis.map((r) => r.t.d);
+  const defs: string[] = [`<clipPath id="${idUnique}-tissu">${surfaces.map((d) => `<path d="${d}"/>`).join("")}</clipPath>`];
+  const effet = o.effet && o.effet !== "uni" ? o.effet : null;
+  let texture = "";
+  if (effet) {
+    const freq = effet === "chiné" ? 0.9 : effet === "garment dye" ? 0.02 : 0.012;
+    const force = effet === "chiné" ? 0.22 : effet === "acid wash" ? 0.5 : effet === "délavé" ? 0.3 : 0.18;
+    defs.push(`<filter id="${idUnique}-effet" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="${effet === "chiné" ? 2 : 3}" seed="7"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 ${force}"/></feComponentTransfer></filter>`);
+    texture = `<g clip-path="url(#${idUnique}-tissu)"><rect x="${vb.x}" y="${vb.y}" width="${vb.l}" height="${vb.h}" filter="url(#${idUnique}-effet)"/></g>`;
+  }
+  const corps = d.boite;
+  defs.push(`<radialGradient id="${idUnique}-lum" cx="${corps.x + corps.l / 2}" cy="${corps.y + corps.h * 0.32}" r="${corps.l * 0.35}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="${c.principale ? 0.22 : 0}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>`);
+  const lumieres = c.principale ? `<g clip-path="url(#${idUnique}-tissu)"><rect x="${vb.x}" y="${vb.y}" width="${vb.l}" height="${vb.h}" fill="url(#${idUnique}-lum)"/></g>` : "";
+
+  const els = o.elements ?? [];
+  const calquesElements: Calque[] = els.map((e, i) => ({
+    id: `el-${e.id}`,
+    nom: `${nomType(e.type)}${els.filter((x) => x.type === e.type).length > 1 ? " " + (els.filter((x, j) => x.type === e.type && j <= i).length) : ""}`,
+    contenu: `<g transform="translate(${e.x} ${e.y}) rotate(${e.rotation})">${svgOps(opsElement(e, o.taille ?? "M"), o.visuel ?? ((x) => (x.startsWith("data:") ? x : null)))}</g>`,
+    fusion: "normal",
+    masque: false,
+    vide: false,
+    groupe: "Éléments",
+  }));
+
   const calques: Calque[] = [
     { id: "fond", nom: "Fond", contenu: `<rect x="${vb.x}" y="${vb.y}" width="${vb.l}" height="${vb.h}" fill="${o.fond}"/>`, fusion: "normal", masque: true, vide: false },
     { id: "base", nom: "Couleur de base du vêtement", contenu: base.join(""), fusion: "normal", masque: false, vide: !base.length },
+    { id: "texture", nom: `Effet matière — ${effet ?? "uni"}`, contenu: texture, fusion: "multiply", masque: false, vide: !texture },
     ...zonesActives.map((z) => ({
       id: `zone-${z.id}`,
       nom: `TON DESIGN ICI — ${z.nom}`,
@@ -185,12 +242,14 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
     })),
     { id: "contours", nom: "Contours", contenu: contours.join(""), fusion: "normal", masque: false, vide: !contours.length },
     { id: "coutures", nom: "Coutures", contenu: coutures.join(""), fusion: "normal", masque: false, vide: !coutures.length },
-    { id: "elements", nom: "Éléments", contenu: elements.join(""), fusion: "normal", masque: false, vide: !elements.length },
+    { id: "elements", nom: "Accessoires du vêtement", contenu: elements.join(""), fusion: "normal", masque: false, vide: !elements.length, groupe: "Éléments" },
+    ...calquesElements,
     { id: "ombres", nom: "Ombres et plis", contenu: ombres.join(""), fusion: "multiply", masque: false, vide: !ombres.length },
+    { id: "lumieres", nom: "Lumières", contenu: lumieres, fusion: "screen", masque: false, vide: !lumieres },
     { id: "retouches", nom: "Retouches", contenu: retouches.join(""), fusion: "normal", masque: false, vide: !retouches.length },
     { id: "reperes", nom: "REPÈRES — à masquer", contenu: reperes.join(""), fusion: "normal", masque: true, vide: false },
   ];
-  return { viewBox: vb, defs: masques.join(""), calques, source: { dessin: d, options: o, teintes: T } };
+  return { viewBox: vb, defs: masques.join("") + defs.join(""), calques, source: { dessin: d, options: o, teintes: T } };
 }
 
 /** Assemble un SVG autonome (un ou plusieurs calques), dimensionné en mm. */
@@ -198,7 +257,7 @@ export function svgDe(r: Rendu, ids?: string[], { avecMasques = false } = {}): s
   const vb = r.viewBox;
   const corps = r.calques
     .filter((c) => (ids ? ids.includes(c.id) : avecMasques || !c.masque))
-    .map((c) => `<g id="${c.id}" data-nom="${esc(c.nom)}"${c.fusion === "multiply" ? ' style="mix-blend-mode:multiply"' : ""}>${c.contenu}</g>`)
+    .map((c) => `<g id="${c.id}" data-nom="${esc(c.nom)}"${c.fusion !== "normal" ? ` style="mix-blend-mode:${c.fusion}"` : ""}>${c.contenu}</g>`)
     .join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.x} ${vb.y} ${vb.l} ${vb.h}" width="${vb.l}mm" height="${vb.h}mm"><defs>${r.defs}</defs>${corps}</svg>`;
 }
