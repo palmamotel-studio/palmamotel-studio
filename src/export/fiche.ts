@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import type { Projet } from "../etat/projet";
-import { mesuresDe, rendreProjet, vuesDe } from "../etat/calcul";
+import { mesuresDe, rendreProjet, vuesDe, attendreRetouches, imagesDuRendu } from "../etat/calcul";
 import { TAILLES, NOMS_VUES, VUES, type Vue } from "../moteur/types";
 import { nomType } from "../moteur/elements";
 import { compositeCanvas } from "./canvas";
@@ -39,13 +39,16 @@ export async function ficheTechnique(p: Projet): Promise<Uint8Array> {
   entete("FICHE TECHNIQUE");
   const vues: Vue[] = vuesDe(p);
   const largeurCase = (W - 2 * m - (vues.length - 1) * 6) / vues.length;
+  for (const v of vues) await attendreRetouches(p, v, p.tailleRef);
   const rendus = vues.map((v) => rendreProjet(p, v, p.tailleRef, `pdf-${v}`));
+  const imgs = images as Map<string, CanvasImageSource & { width: number; height: number }>;
+  for (const r of rendus) await imagesDuRendu(r, imgs);
   // Même échelle pour toutes les vues, pour qu'elles restent comparables.
   const k = Math.min(...rendus.map((r) => Math.min(largeurCase / r.viewBox.l, 150 / r.viewBox.h)));
   vues.forEach((v, i) => {
     const r = rendus[i];
     const dpi = Math.min(110, 2400 / Math.max(r.viewBox.l, r.viewBox.h) * 25.4);
-    const c = compositeCanvas(r, dpi, true, images);
+    const c = compositeCanvas(r, dpi, true, imgs);
     const l = r.viewBox.l * k, h = r.viewBox.h * k;
     const x = m + i * (largeurCase + 6) + (largeurCase - l) / 2;
     doc.addImage(c.toDataURL("image/jpeg", 0.9), "JPEG", x, 26, l, h);

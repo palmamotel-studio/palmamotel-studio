@@ -1,6 +1,7 @@
 import type { Pose, Taille, Vue, Finitions } from "../moteur/types";
 import { FINITIONS_DEFAUT } from "../moteur/types";
 import type { Element } from "../moteur/elements";
+import type { OpImage } from "./imageModele";
 import type { TableauTailles } from "../moteur/tailles";
 import type { Retouche } from "../moteur/rendu";
 import { gabarit } from "../gabarits";
@@ -43,6 +44,8 @@ export interface Projet {
   notes: string;
   /** Mock-up basé sur un modèle du catalogue (image) plutôt que sur un gabarit dessiné. */
   modele?: ModeleProjet;
+  /** Retouches de l'image du modèle, par vue (gomme, remplissage, allongement). */
+  retouchesImage?: Partial<Record<Vue, OpImage[]>>;
 }
 
 export interface VueModele { nom: string; chemin: string; l: number; h: number }

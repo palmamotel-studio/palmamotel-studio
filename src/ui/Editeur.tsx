@@ -11,9 +11,11 @@ export function Editeur({ ctx }: { ctx: Contexte }) {
   const { projet, etape, set, fermer, annuler, retablir, passe, futur, modifie, marquerEnregistre, remplacerDepuisDistant } = useEditeur();
   const [statut, setStatut] = useState<"ok" | "encours" | "erreur">("ok");
   const [voirManquantes, setVoirManquantes] = useState(false);
-  const [outil, setOutil] = useState<OutilRetouche>("poignees");
+  const [outil, setOutil] = useState<OutilRetouche>(() => (useEditeur.getState().projet?.modele ? "main" : "poignees"));
   const [epaisseur, setEpaisseur] = useState(0.8);
   const [couleurTrait, setCouleurTrait] = useState("#1b1b1b");
+  const [plein, setPlein] = useState<string | null>(null);
+  const [tolerance, setTolerance] = useState(60);
   const [message, setMessage] = useState<string | null>(null);
   const minuteur = useRef<number>();
 
@@ -115,7 +117,7 @@ export function Editeur({ ctx }: { ctx: Contexte }) {
       </nav>
 
       <div className="corps">
-        <Apercu outil={etape === "retouches" ? outil : etape === "elements" ? "elements" : null} epaisseur={epaisseur} couleurTrait={couleurTrait} />
+        <Apercu outil={etape === "retouches" ? outil : etape === "elements" ? "elements" : null} epaisseur={epaisseur} couleurTrait={couleurTrait} plein={plein} tolerance={tolerance} />
         <aside className="panneau">
           <div className="contenu">
             {etape === "piece" && <EtapePiece />}
@@ -123,7 +125,7 @@ export function Editeur({ ctx }: { ctx: Contexte }) {
             {etape === "matiere" && <EtapeMatiere ctx={ctx} />}
             {etape === "finitions" && <EtapeFinitions />}
             {etape === "elements" && <EtapeElements ctx={ctx} />}
-            {etape === "retouches" && <EtapeRetouches outil={outil} setOutil={setOutil} epaisseur={epaisseur} setEpaisseur={setEpaisseur} couleurTrait={couleurTrait} setCouleurTrait={setCouleurTrait} />}
+            {etape === "retouches" && <EtapeRetouches outil={outil} setOutil={setOutil} epaisseur={epaisseur} setEpaisseur={setEpaisseur} couleurTrait={couleurTrait} setCouleurTrait={setCouleurTrait} plein={plein} setPlein={setPlein} tolerance={tolerance} setTolerance={setTolerance} />}
             {etape === "export" && <EtapeExport toast={toast} ctx={ctx} />}
           </div>
           <div className="nav">

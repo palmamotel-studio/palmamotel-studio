@@ -7,7 +7,6 @@ import { TAILLES, NOMS_VUES, type Taille, type Vue } from "../moteur/types";
 import { valeurStandard } from "../moteur/tailles";
 import { listerPalette, ajouterCouleur, supprimerCouleur, type CouleurMarque } from "../etat/donnees";
 import { PREREGLAGES, avertissements, produire, emballer, livrer, taillePx, type Format, type Prereglage, type Coloris } from "../export/exporter";
-import type { OutilRetouche } from "./Apercu";
 import { EtapeModele } from "./EtapeModele";
 
 const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString("fr-FR");
@@ -206,41 +205,7 @@ export function EtapeMatiere({ ctx }: { ctx: Contexte }) {
   );
 }
 
-/* ---------------- 6. Retouches ---------------- */
-export function EtapeRetouches({ outil, setOutil, epaisseur, setEpaisseur, couleurTrait, setCouleurTrait }: {
-  outil: OutilRetouche; setOutil: (o: OutilRetouche) => void; epaisseur: number; setEpaisseur: (n: number) => void; couleurTrait: string; setCouleurTrait: (c: string) => void;
-}) {
-  const { projet, modifier, vue } = useEditeur();
-  if (!projet) return null;
-  const nb = projet.retouches[vue]?.length || 0;
-  return (
-    <div className="stack">
-      <div><span className="eyebrow">Étape 6</span><h2>Retouches</h2></div>
-      <div className="seg" role="group">
-        <button aria-pressed={outil === "poignees"} onClick={() => setOutil("poignees")}>Ajuster la forme</button>
-        <button aria-pressed={outil === "dessin"} onClick={() => setOutil("dessin")}>Dessin libre</button>
-      </div>
-      {outil === "poignees" ? (
-        <p className="note">Fais glisser les points roses sur le dessin : longueur, poitrine, épaules, manche, bas. Les mesures se mettent à jour et restent exactes dans la fiche et l'export.</p>
-      ) : (
-        <>
-          <p className="note">Dessine au doigt ou à l'Apple Pencil (surpiqûres, détails, annotations). Le dessin est exporté sur un calque « Retouches » séparé.</p>
-          <div className="grid2">
-            <label className="champ">Épaisseur ({fmt(epaisseur)} mm)<input type="range" min={0.3} max={4} step={0.1} value={epaisseur} onChange={(e) => setEpaisseur(Number(e.target.value))} /></label>
-            <label className="champ">Couleur<input type="color" value={couleurTrait} onChange={(e) => setCouleurTrait(e.target.value)} style={{ minHeight: 44 }} /></label>
-          </div>
-          <div className="row">
-            <button className="btn" disabled={!nb} onClick={() => modifier((p) => { p.retouches[vue] = (p.retouches[vue] || []).slice(0, -1); })}>Effacer le dernier trait</button>
-            <button className="btn danger" disabled={!nb} onClick={() => modifier((p) => { p.retouches[vue] = []; })}>Tout effacer ({NOMS_VUES[vue].toLowerCase()})</button>
-          </div>
-        </>
-      )}
-      <label className="champ">Notes pour la fiche
-        <textarea id="f-notes" value={projet.notes} onChange={(e) => modifier((p) => { p.notes = e.target.value; }, "notes")} placeholder="Détails de confection, remarques…" />
-      </label>
-    </div>
-  );
-}
+export { EtapeRetouches } from "./EtapeRetouches";
 
 /* ---------------- 7. Export ---------------- */
 export function EtapeExport({ toast, ctx }: { toast: (s: string) => void; ctx: Contexte }) {

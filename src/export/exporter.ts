@@ -3,7 +3,7 @@ import { zipSync } from "fflate";
 import type { Projet } from "../etat/projet";
 import type { Taille, Vue } from "../moteur/types";
 import { NOMS_VUES } from "../moteur/types";
-import { rendreProjet } from "../etat/calcul";
+import { rendreProjet, attendreRetouches, imagesDuRendu } from "../etat/calcul";
 import { svgDe, type Rendu } from "../moteur/rendu";
 import { details } from "../moteur/details";
 import { pxParMm } from "../moteur/echelle";
@@ -68,7 +68,7 @@ export function avertissements(p: Projet, d: Demande): string[] {
 
 const pause = () => new Promise((ok) => setTimeout(ok, 0));
 
-type Images = Map<string, HTMLImageElement>;
+type Images = Map<string, CanvasImageSource & { width: number; height: number }>;
 
 async function calquesCanvas(r: Rendu, dpi: number, images: Images) {
   const out: { id: string; nom: string; canvas: HTMLCanvasElement; fusion: string; masque: boolean; groupe?: string }[] = [];
@@ -134,7 +134,9 @@ async function produireUn(p: Projet, d: Demande, progression?: (t: string) => vo
   for (const t of d.tailles) {
     for (const vue of d.vues) {
       progression?.(`${NOMS_VUES[vue]} · ${t}`);
+      await attendreRetouches(p, vue, t);
       const r = rendreProjet(p, vue, t, `ex-${vue}-${t}`);
+      await imagesDuRendu(r, images);
       if (!d.fondTransparent) r.calques.forEach((c) => { if (c.id === "fond") c.masque = false; });
       if (d.formats.includes("details")) {
         const comp = compositeCanvas(r, d.dpi, !d.fondTransparent, images);

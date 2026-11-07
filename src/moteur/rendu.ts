@@ -16,11 +16,32 @@ export interface Couleurs {
   accessoires: string;
 }
 
+export type FormeRetouche = "trait" | "ligne" | "pointilles" | "rect" | "ellipse";
 export interface Retouche {
   pts: Pt[];
   epaisseur: number; // mm
   couleur: string;
+  /** Absent = trait à main levée. */
+  forme?: FormeRetouche;
+  /** Remplissage des rectangles et ellipses (null = vide). */
+  plein?: string | null;
 }
+
+/** Chemin SVG d'une retouche (partagé écran / export). */
+export function cheminRetouche(r: Retouche): string {
+  const f = (n: number) => n.toFixed(1);
+  const [a, b] = [r.pts[0], r.pts[r.pts.length - 1]];
+  switch (r.forme) {
+    case "ligne": case "pointilles": return `M ${f(a[0])} ${f(a[1])} L ${f(b[0])} ${f(b[1])}`;
+    case "rect": return `M ${f(a[0])} ${f(a[1])} H ${f(b[0])} V ${f(b[1])} H ${f(a[0])} Z`;
+    case "ellipse": {
+      const cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2, rx = Math.abs(b[0] - a[0]) / 2 || 0.1, ry = Math.abs(b[1] - a[1]) / 2 || 0.1;
+      return `M ${f(cx - rx)} ${f(cy)} A ${f(rx)} ${f(ry)} 0 1 0 ${f(cx + rx)} ${f(cy)} A ${f(rx)} ${f(ry)} 0 1 0 ${f(cx - rx)} ${f(cy)} Z`;
+    }
+    default: return r.pts.map((p, i) => `${i ? "L" : "M"} ${f(p[0])} ${f(p[1])}`).join(" ");
+  }
+}
+export const tiretsRetouche = (r: Retouche) => (r.forme === "pointilles" ? [r.epaisseur * 4, r.epaisseur * 2.6] : null);
 
 export interface OptionsRendu {
   couleurs: Couleurs;
@@ -40,7 +61,7 @@ export interface OptionsRendu {
   /** Résout un visuel importé en URL affichable (écran). */
   visuel?: (src: string) => string | null;
   /** Mock-up à partir d'une image du catalogue : l'image remplace le dessin calculé. */
-  image?: { src: string; x: number; y: number; l: number; h: number };
+  image?: { src: string; x: number; y: number; l: number; h: number; remplissage?: string; masque?: string };
 }
 
 export type ModeFusion = "normal" | "multiply" | "screen" | "overlay";
@@ -200,9 +221,10 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
   });
   reperes.push(regle(vb.x + 12, vb.y + vb.h - 14));
 
-  const retouches = o.retouches.map(
-    (r) => `<path d="${r.pts.map((p, i) => `${i ? "L" : "M"} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(" ")}" fill="none" stroke="${r.couleur}" stroke-width="${r.epaisseur}" stroke-linecap="round" stroke-linejoin="round"/>`,
-  );
+  const retouches = o.retouches.map((r) => {
+    const t = tiretsRetouche(r);
+    return `<path d="${cheminRetouche(r)}" fill="${r.plein ?? "none"}" stroke="${r.couleur}" stroke-width="${r.epaisseur}" stroke-linecap="${t ? "butt" : "round"}" stroke-linejoin="round"${t ? ` stroke-dasharray="${t.join(" ")}"` : ""}/>`;
+  });
 
   // Effet matière et lumières : limités aux surfaces du vêtement.
   const surfaces = remplis.map((r) => r.t.d);
@@ -233,13 +255,17 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
   // Modèle du catalogue : l'image, puis la couleur posée en « Produit » sur la silhouette.
   const img = o.image;
   const urlImg = img ? (o.visuel ?? ((x: string) => (x.startsWith("data:") ? x : null)))(img.src) : null;
-  let calqueImage = "", calqueTeinte = "";
+  let calqueImage = "", calqueTeinte = "", calqueRemplissage = "";
+  const resoudre = o.visuel ?? ((x: string) => (x.startsWith("data:") ? x : null));
   if (img) {
     if (urlImg) {
       const balise = `<image href="${esc(urlImg)}" x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" preserveAspectRatio="none"/>`;
       calqueImage = balise;
+      const urlRem = img.remplissage ? resoudre(img.remplissage) : null;
+      if (urlRem) calqueRemplissage = `<image href="${esc(urlRem)}" x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" preserveAspectRatio="none"/>`;
+      const urlMasque = img.masque ? resoudre(img.masque) ?? urlImg : urlImg;
       if (c.principale) {
-        defs.push(`<mask id="${idUnique}-mimg" maskUnits="userSpaceOnUse" x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" style="mask-type:alpha">${balise}</mask>`);
+        defs.push(`<mask id="${idUnique}-mimg" maskUnits="userSpaceOnUse" x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" style="mask-type:alpha"><image href="${esc(urlMasque)}" x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" preserveAspectRatio="none"/></mask>`);
         calqueTeinte = `<rect x="${img.x}" y="${img.y}" width="${img.l}" height="${img.h}" fill="${tissu}" mask="url(#${idUnique}-mimg)"/>`;
       }
     } else {
@@ -252,6 +278,7 @@ export function rendre(d: Dessin, o: OptionsRendu, idUnique = "pm"): Rendu {
     { id: "base", nom: "Couleur de base du vêtement", contenu: base.join(""), fusion: "normal", masque: false, vide: !base.length },
     { id: "modele", nom: "Dessin du modèle", contenu: calqueImage, fusion: "normal", masque: false, vide: !img },
     { id: "teinte", nom: "Couleur du vêtement (Produit)", contenu: calqueTeinte, fusion: "multiply", masque: false, vide: !calqueTeinte },
+    { id: "remplissages", nom: "Zones colorées", contenu: calqueRemplissage, fusion: "normal", masque: false, vide: !calqueRemplissage },
     { id: "texture", nom: `Effet matière — ${effet ?? "uni"}`, contenu: texture, fusion: "multiply", masque: false, vide: !texture },
     ...zonesActives.map((z) => ({
       id: `zone-${z.id}`,

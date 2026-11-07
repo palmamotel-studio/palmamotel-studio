@@ -5,7 +5,8 @@ import { gabarit } from "../gabarits";
 import { mesuresCm, enMm } from "../moteur/tailles";
 import { rendre, type Rendu } from "../moteur/rendu";
 import { scorePrecision, type ChampFiche } from "../moteur/precision";
-import { urlVisuel } from "./visuels";
+import { urlVisuel, precharger } from "./visuels";
+import { tailleTraitee, cleTraitee, demanderTraitement, urlTraitee, canvasTraite } from "./imageModele";
 
 export function mesuresDe(p: Projet, t: Taille) {
   const g = gabarit(p.gabaritId)!;
@@ -24,16 +25,31 @@ export function vueModele(p: Projet, vue: Vue, t: Taille) {
   return { v, l: v.l * k, h: v.h * k };
 }
 
+/** Résout les visuels, y compris les images de modèles retouchées. */
+export const resoudreVisuel = (s: string) => (s.startsWith("traite:") ? urlTraitee(s) : urlVisuel(s));
+
 function rendreModele(p: Projet, vue: Vue, t: Taille, idUnique: string): Rendu {
-  const { v, l, h } = vueModele(p, vue, t);
+  const base = vueModele(p, vue, t);
+  const v = base.v;
+  const ops = p.retouchesImage?.[vue] ?? [];
+  const { l, h } = tailleTraitee(base.l, base.h, ops);
+  const srcBase = "stockage:catalogue/" + v.chemin;
+  let image: { src: string; x: number; y: number; l: number; h: number; remplissage?: string; masque?: string } = { src: srcBase, x: -l / 2, y: 0, l, h };
+  if (ops.length) {
+    const cle = cleTraitee(srcBase, base.l, ops);
+    if (typeof document !== "undefined") demanderTraitement(cle, async () => (await precharger([srcBase])).get(srcBase) ?? null, base.l, base.h, ops);
+    image = { ...image, src: urlTraitee(cle) ? cle : srcBase, remplissage: ops.some((o) => o.t === "remplir") ? cle + "#r" : undefined, masque: cle + "#m" };
+    // Tant que le traitement n'est pas prêt, on garde la taille d'origine pour ne pas déformer l'image.
+    if (!urlTraitee(cle)) image = { src: srcBase, x: -base.l / 2, y: 0, l: base.l, h: base.h };
+  }
   const c = p.couleur;
   return rendre(
-    { traces: [], boite: { x: -l / 2, y: 0, l, h } },
+    { traces: [], boite: { x: image.x, y: 0, l: image.l, h: image.h } },
     {
       couleurs: { principale: c.traitSeul ? null : c.principale, cotes: null, interieur: null, fil: null, accessoires: c.accessoires },
       zones: [], zonesActives: [], retouches: p.retouches[vue] || [], marge: 40, fond: "#ffffff",
-      elements: (p.elements || []).filter((e) => e.vue === vue), taille: t, visuel: urlVisuel,
-      image: { src: "stockage:catalogue/" + v.chemin, x: -l / 2, y: 0, l, h },
+      elements: (p.elements || []).filter((e) => e.vue === vue), taille: t, visuel: resoudreVisuel,
+      image,
     },
     idUnique,
   );
@@ -91,4 +107,27 @@ export function precisionProjet(p: Projet) {
 export function vuesDe(p: Projet): Vue[] {
   if (p.modele) return (["face", "dos", "profil"] as Vue[]).filter((v) => p.modele!.correspondance[v] !== null);
   return gabarit(p.gabaritId)?.vues ?? VUES;
+}
+
+/** Attend que les retouches d'image d'une vue soient calculées (avant un export). */
+export async function attendreRetouches(p: Projet, vue: Vue, t: Taille): Promise<void> {
+  if (!p.modele) return;
+  const ops = p.retouchesImage?.[vue] ?? [];
+  if (!ops.length) return;
+  const base = vueModele(p, vue, t);
+  const srcBase = "stockage:catalogue/" + base.v.chemin;
+  const cle = cleTraitee(srcBase, base.l, ops);
+  demanderTraitement(cle, async () => (await precharger([srcBase])).get(srcBase) ?? null, base.l, base.h, ops);
+  await canvasTraite(cle);
+}
+
+/** Toutes les images dont un rendu a besoin pour l'export (modèle, retouches, visuels). */
+export async function imagesDuRendu(r: Rendu, images: Map<string, CanvasImageSource & { width: number; height: number }>) {
+  const img = r.source.options.image;
+  if (!img) return;
+  for (const s of [img.src, img.remplissage, img.masque]) {
+    if (!s || images.has(s)) continue;
+    if (s.startsWith("traite:")) { const c = await canvasTraite(s); if (c) images.set(s, c); }
+    else (await precharger([s])).forEach((v, k) => images.set(k, v));
+  }
 }

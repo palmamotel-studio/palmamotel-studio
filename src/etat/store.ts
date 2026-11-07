@@ -25,6 +25,8 @@ interface EtatEditeur {
   mesureActive: string | null;
   /** Élément sélectionné (étape Éléments). */
   elementActif: string | null;
+  /** Ligne de coupe en attente (outil « allonger » sur un modèle du catalogue). */
+  coupe: { axe: "v" | "h"; pos: number } | null;
   modifie: boolean;
   ouvrir: (p: Projet) => void;
   fermer: () => void;
@@ -34,7 +36,7 @@ interface EtatEditeur {
   retablir: () => void;
   remplacerDepuisDistant: (p: Projet) => void;
   marquerEnregistre: () => void;
-  set: (e: Partial<Pick<EtatEditeur, "etape" | "vue" | "taille" | "mesureActive" | "elementActif">>) => void;
+  set: (e: Partial<Pick<EtatEditeur, "etape" | "vue" | "taille" | "mesureActive" | "elementActif" | "coupe">>) => void;
 }
 
 let dernierGroupe: { cle: string; t: number } | null = null;
@@ -48,6 +50,7 @@ export const useEditeur = create<EtatEditeur>((set, get) => ({
   taille: "M",
   mesureActive: null,
   elementActif: null,
+  coupe: null,
   modifie: false,
   ouvrir: (p) => set({ projet: p, passe: [], futur: [], etape: "piece", vue: "face", taille: p.tailleRef, modifie: false }),
   fermer: () => set({ projet: null, passe: [], futur: [] }),

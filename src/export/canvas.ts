@@ -1,10 +1,10 @@
 import type { Rendu } from "../moteur/rendu";
-import { ROSE, NOIR, styleAccessoire, facteurPlis } from "../moteur/rendu";
+import { ROSE, NOIR, styleAccessoire, facteurPlis, cheminRetouche, tiretsRetouche } from "../moteur/rendu";
 import { FINITIONS_DEFAUT } from "../moteur/types";
 import { opsElement, canvasOps } from "../moteur/elements";
 import { pxParMm } from "../moteur/echelle";
 
-type Images = Map<string, HTMLImageElement>;
+type Images = Map<string, CanvasImageSource & { width: number; height: number }>;
 
 /**
  * Rendu direct d'un calque sur canvas (export). Beaucoup plus rapide que de passer
@@ -92,17 +92,19 @@ function dessinerCalque(g: CanvasRenderingContext2D, r: Rendu, id: string, image
     canvasOps(g, opsElement(e, o.taille ?? "M"), images);
     return;
   }
-  if (id === "modele" || id === "teinte") {
+  if (id === "modele" || id === "teinte" || id === "remplissages") {
     const im = o.image && images.get(o.image.src);
     if (!o.image || !im) return;
     const { x, y, l, h } = o.image;
     if (id === "modele") { g.drawImage(im, x, y, l, h); return; }
+    if (id === "remplissages") { const r = o.image.remplissage && images.get(o.image.remplissage); if (r) g.drawImage(r, x, y, l, h); return; }
+    const silhouette = (o.image.masque && images.get(o.image.masque)) || im;
     // Couleur limitée à la silhouette de l'image (son canal alpha).
     const t = document.createElement("canvas");
     t.width = g.canvas.width; t.height = g.canvas.height;
     const tg = t.getContext("2d")!;
     tg.setTransform(g.getTransform());
-    tg.drawImage(im, x, y, l, h);
+    tg.drawImage(silhouette, x, y, l, h);
     tg.globalCompositeOperation = "source-in";
     tg.fillStyle = T.tissu; tg.fillRect(x, y, l, h);
     g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(t, 0, 0); g.restore();
@@ -130,9 +132,11 @@ function dessinerCalque(g: CanvasRenderingContext2D, r: Rendu, id: string, image
   }
   if (id === "retouches") {
     o.retouches.forEach((rt) => {
-      g.strokeStyle = rt.couleur; g.lineWidth = rt.epaisseur; g.beginPath();
-      rt.pts.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])));
-      g.stroke();
+      const p = new Path2D(cheminRetouche(rt));
+      const t = tiretsRetouche(rt);
+      if (rt.plein) { g.fillStyle = rt.plein; g.fill(p); }
+      g.strokeStyle = rt.couleur; g.lineWidth = rt.epaisseur; g.setLineDash(t ?? []); g.lineCap = t ? "butt" : "round";
+      g.stroke(p); g.setLineDash([]);
     });
     return;
   }
